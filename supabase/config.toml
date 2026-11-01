@@ -1,0 +1,7 @@
+# Configuração mínima para o Supabase CLI.
+project_id = "consultorio"
+
+[functions.mcp]
+# O Claude não envia JWT do Supabase; o acesso é conferido na própria função.
+verify_jwt = false
+import_map = "./functions/mcp/deno.json"

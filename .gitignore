@@ -1,0 +1,11 @@
+.env
+.env.*
+supabase/.temp/
+supabase/.branches/
+node_modules/
+.DS_Store
+# nunca versionar tokens de acesso nem exportações da base
+*.token
+token*.txt
+backup*/
+*.dump
