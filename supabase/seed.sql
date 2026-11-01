@@ -5,9 +5,8 @@
 -- O cadastro passa pelas próprias ferramentas, para testar a auditoria.
 -- =====================================================================
 
-insert into public.configuracao (nome_consultorio, dentista_nome, cro, endereco, telefone)
-values ('Consultório (teste)', 'Dra. Andressa (teste)', 'CRO-SP 00000', 'Endereço de teste', '11900000000')
-on conflict (id) do nothing;
+-- Os dados do consultório (nome, CRO, endereço) e o catálogo de procedimentos
+-- vêm das migrations; aqui ficam só pacientes inventados.
 
 select public.mcp_cadastrar_paciente(
   '{"nome": "João Pedro Almeida", "data_nascimento": "1987-03-12", "sexo": "masculino",
@@ -48,4 +47,26 @@ select public.mcp_registrar_atendimento(
     'evolucao', 'Avaliação inicial. Cárie em 46 (O) e restauração insatisfatória em 26. Profilaxia e orientação de higiene.',
     'proxima_etapa', 'Restauração do 46 e troca da restauração do 26',
     'retorno_em_dias', 15),
+  'seed: dados fictícios');
+
+-- Anamnese e odontograma do João (avaliação de 14 dias atrás).
+select public.mcp_registrar_anamnese(
+  jsonb_build_object(
+    'paciente_id', (select id from public.pacientes where cpf = '11600034594'),
+    'respostas', '[{"pergunta": "queixa_principal", "resposta": "Check-up; sente o 46 com comida presa"},
+                   {"pergunta": "alergia_medicamento", "resposta": "sim", "detalhe": "penicilina, urticária"},
+                   {"pergunta": "bruxismo", "resposta": "sim"}]'::jsonb,
+    'demais_negativas', true,
+    'pressao_arterial', '130x85'),
+  'seed: dados fictícios');
+
+select public.mcp_registrar_odontograma(
+  jsonb_build_object(
+    'paciente_id', (select id from public.pacientes where cpf = '11600034594'),
+    'data', to_char(public.hoje() - 14, 'YYYY-MM-DD'),
+    'marcas', '[{"dente": 46, "condicao": "carie", "faces": "O"},
+                {"dente": 26, "condicao": "restauracao_insatisfatoria", "faces": "MO", "detalhe": "amálgama"},
+                {"dente": 46, "procedimento_codigo": "resina_1_face", "faces": "O", "camada": "planejado"},
+                {"dente": 26, "procedimento_codigo": "resina_2_faces", "faces": "MO", "camada": "planejado"},
+                {"dentes": [18, 28], "condicao": "ausente"}]'::jsonb),
   'seed: dados fictícios');

@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // Testes locais do servidor MCP, sem banco: o `rpc` é falso e só registra
 // as chamadas. Rodar com:
-//   deno test --config supabase/functions/mcp/deno.json tests/
+//   deno test --allow-read --config supabase/functions/mcp/deno.json tests/
 
 import { criarHandler, ErroRpc, sha256Hex, tokenDaUrl } from "../supabase/functions/mcp/servidor.ts";
 
@@ -82,17 +82,48 @@ Deno.test("initialize traz nome, versão e instruções em português", async ()
   verdade(res.capabilities.tools, "sem capacidade de ferramentas");
 });
 
-Deno.test("tools/list: 3 ferramentas, busca só leitura, gravações não destrutivas", async () => {
+Deno.test("tools/list: 8 ferramentas, leitura x gravação, nenhuma destrutiva", async () => {
   const { mcp } = await montar();
   const r = await mcp("tools/list");
   const tools = (r.corpo as any).result.tools as any[];
-  igual(tools.map((t) => t.name).sort(), ["buscar_paciente", "cadastrar_paciente", "registrar_atendimento"]);
+  igual(tools.map((t) => t.name).sort(), [
+    "atualizar_paciente",
+    "buscar_paciente",
+    "cadastrar_paciente",
+    "listar_procedimentos",
+    "registrar_anamnese",
+    "registrar_atendimento",
+    "registrar_odontograma",
+    "salvar_procedimento",
+  ]);
   const porNome = Object.fromEntries(tools.map((t) => [t.name, t]));
+  for (const t of tools) igual(t.annotations.destructiveHint, false, `${t.name} destrutiva`);
   igual(porNome.buscar_paciente.annotations.readOnlyHint, true);
+  igual(porNome.listar_procedimentos.annotations.readOnlyHint, true);
   igual(porNome.cadastrar_paciente.annotations.readOnlyHint, false);
-  igual(porNome.registrar_atendimento.annotations.destructiveHint, false);
   igual(porNome.registrar_atendimento.inputSchema.required.sort(), ["evolucao", "paciente_id", "texto_original"]);
   igual(porNome.cadastrar_paciente.inputSchema.required.sort(), ["nome", "texto_original"]);
+  igual(porNome.atualizar_paciente.inputSchema.required.sort(), ["paciente_id", "texto_original"]);
+  igual(porNome.registrar_odontograma.inputSchema.required.sort(), ["marcas", "paciente_id", "texto_original"]);
+});
+
+Deno.test("catálogos: perguntas e condições vêm do JSON e aparecem nas descrições", async () => {
+  const { mcp } = await montar();
+  const r = await mcp("tools/list");
+  const porNome = Object.fromEntries(((r.corpo as any).result.tools as any[]).map((t) => [t.name, t]));
+  const anamnese = porNome.registrar_anamnese;
+  const codigos = anamnese.inputSchema.properties.respostas.items.properties.pergunta.enum as string[];
+  verdade(codigos.includes("anticoagulante") && codigos.includes("bisfosfonato"), "faltam perguntas de risco");
+  igual(codigos.length, 47);
+  verdade(anamnese.description.includes("gestacao: Está grávida"), "descrição sem a lista de perguntas");
+  const odonto = porNome.registrar_odontograma;
+  const cond = odonto.inputSchema.properties.marcas.items.properties.condicao.enum as string[];
+  verdade(cond.includes("carie") && cond.includes("ausente") && cond.includes("implante"), "faltam condições");
+  verdade(odonto.description.includes("restauracao (com faces)"), "descrição sem as condições");
+  verdade(
+    !JSON.stringify(odonto.inputSchema.properties.marcas.items.properties.regiao.enum).includes("boca"),
+    "região do odontograma não deve aceitar boca",
+  );
 });
 
 Deno.test("buscar_paciente repassa os argumentos para mcp_buscar_paciente", async () => {
@@ -169,4 +200,94 @@ Deno.test("erro do banco vira isError, com 'Nada foi gravado' e registro da falh
   const falha = chamadas.find((c) => c.funcao === "mcp_registrar_falha");
   verdade(falha, "falha não registrada");
   igual(falha!.args.p_texto_original, "fiz resina no 19");
+});
+
+Deno.test("atualizar_paciente separa o id dos dados", async () => {
+  const { mcp, chamadas } = await montar({ mcp_atualizar_paciente: () => ({ status: "ok" }) });
+  await mcp("tools/call", {
+    name: "atualizar_paciente",
+    arguments: {
+      paciente_id: "p1",
+      email: "a@b.com",
+      alertas_remover: ["dipirona"],
+      limpar: ["rg"],
+      texto_original: "troca o e-mail da Mari",
+    },
+  });
+  igual(chamadas.at(-1), {
+    funcao: "mcp_atualizar_paciente",
+    args: {
+      p_paciente_id: "p1",
+      p_dados: { email: "a@b.com", alertas_remover: ["dipirona"], limpar: ["rg"] },
+      p_texto_original: "troca o e-mail da Mari",
+    },
+  });
+});
+
+Deno.test("registrar_anamnese recusa pergunta fora do questionário antes do banco", async () => {
+  const { mcp, chamadas } = await montar();
+  const r = await mcp("tools/call", {
+    name: "registrar_anamnese",
+    arguments: {
+      paciente_id: "p1",
+      respostas: [{ pergunta: "signo", resposta: "leão" }],
+      texto_original: "t",
+    },
+  });
+  const res = (r.corpo as any).result ?? (r.corpo as any).error;
+  verdade(res.isError === true || (r.corpo as any).error, "deveria recusar pergunta inexistente");
+  igual(chamadas.filter((c) => c.funcao === "mcp_registrar_anamnese").length, 0);
+});
+
+Deno.test("registrar_anamnese e odontograma mandam os dados inteiros em p_dados", async () => {
+  const { mcp, chamadas } = await montar({
+    mcp_registrar_anamnese: () => ({ status: "ok" }),
+    mcp_registrar_odontograma: () => ({ status: "ok" }),
+  });
+  await mcp("tools/call", {
+    name: "registrar_anamnese",
+    arguments: {
+      paciente_id: "p1",
+      respostas: [{ pergunta: "alergia_latex", resposta: "sim" }],
+      demais_negativas: true,
+      pressao_arterial: "12 por 8",
+      texto_original: "alérgica a látex, o resto tudo não, pressão 12 por 8",
+    },
+  });
+  igual((chamadas.at(-1)!.args.p_dados as any).demais_negativas, true);
+  igual((chamadas.at(-1)!.args.p_dados as any).paciente_id, "p1");
+  await mcp("tools/call", {
+    name: "registrar_odontograma",
+    arguments: {
+      paciente_id: "p1",
+      marcas: [{ dentes: [18, 28], condicao: "ausente" }, { dente: 36, condicao: "carie", faces: "O" }],
+      texto_original: "18 e 28 ausentes, cárie oclusal no 36",
+    },
+  });
+  const c = chamadas.at(-1)!;
+  igual(c.funcao, "mcp_registrar_odontograma");
+  igual((c.args.p_dados as any).marcas.length, 2);
+  igual("texto_original" in (c.args.p_dados as any), false);
+});
+
+Deno.test("salvar_procedimento aceita preço nulo (tirar o preço)", async () => {
+  const { mcp, chamadas } = await montar({ mcp_salvar_procedimento: () => ({ status: "atualizado" }) });
+  const r = await mcp("tools/call", {
+    name: "salvar_procedimento",
+    arguments: { codigo: "selante", preco: null, texto_original: "tira o preço do selante" },
+  });
+  igual((r.corpo as any).result.isError, undefined);
+  igual(chamadas.at(-1)!.args.p_dados, { codigo: "selante", preco: null });
+});
+
+Deno.test("listar_procedimentos é consulta: erro diz que a consulta não foi feita", async () => {
+  const { mcp } = await montar({
+    mcp_listar_procedimentos: () => {
+      throw new ErroRpc("banco fora do ar");
+    },
+  });
+  const r = await mcp("tools/call", { name: "listar_procedimentos", arguments: { busca: "resina" } });
+  const res = (r.corpo as any).result;
+  igual(res.isError, true);
+  verdade(res.content[0].text.startsWith("A consulta não foi feita."), res.content[0].text);
 });
