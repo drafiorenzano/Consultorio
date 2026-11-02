@@ -146,3 +146,10 @@ Deno.test("ver_agenda é leitura: sem argumentos funciona e erro diz que a consu
   igual(res.isError, true);
   verdade(res.content[0].text.startsWith("A consulta não foi feita."), res.content[0].text);
 });
+
+Deno.test("acesso_ipad: gravação com ação obrigatória", async () => {
+  const t = await ferramentas();
+  verdade(t.acesso_ipad, "falta acesso_ipad");
+  igual(t.acesso_ipad.inputSchema.required.sort(), ["acao", "texto_original"]);
+  igual(t.acesso_ipad.annotations.readOnlyHint, false);
+});

@@ -27,6 +27,7 @@ import { modulo as agenda } from "./ferramentas/agenda.ts";
 import { modulo as documentos } from "./ferramentas/documentos.ts";
 import { modulo as estoque } from "./ferramentas/estoque.ts";
 import { modulo as financeiro } from "./ferramentas/financeiro.ts";
+import { modulo as ipad } from "./ferramentas/ipad.ts";
 import condicoes from "./catalogos/condicoes.json" with { type: "json" };
 import perguntas from "./catalogos/anamnese.json" with { type: "json" };
 
@@ -35,7 +36,7 @@ export const VERSAO = "0.3.0";
 export { type Arquivos, type Dependencias, ErroRpc, type Rpc } from "./comum.ts";
 
 /** Módulos de ferramentas (cada um no seu arquivo em ferramentas/). */
-export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro];
+export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro, ipad];
 
 const INSTRUCOES_BASE = `Ferramentas do prontuário do consultório odontológico da Dra. Andressa.
 Quem fala com você é a própria dentista, quase sempre por ditado no celular, logo depois de atender.
