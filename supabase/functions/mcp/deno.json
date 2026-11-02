@@ -1,6 +1,7 @@
 {
   "imports": {
     "@modelcontextprotocol/sdk/": "npm:/@modelcontextprotocol/sdk@1.32.2/",
-    "zod": "npm:zod@4.6.7"
+    "zod": "npm:zod@4.6.7",
+    "pdf-lib": "npm:pdf-lib@1.17.1"
   }
 }
