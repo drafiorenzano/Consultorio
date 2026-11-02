@@ -1,0 +1,68 @@
+/*
+ * Tema do app. Para trocar a identidade visual (logo e cores novas da
+ * designer), basta mudar estas variáveis e as fontes no index.html.
+ * Base atual: site andressafiorenzano.com.br.
+ */
+:root {
+  --cor-marca: #2c4a3e;        /* verde-floresta */
+  --cor-marca-suave: #e3e9e5;
+  --cor-fundo: #f0ede6;        /* bege */
+  --cor-areia: #d4c5a9;
+  --cor-areia-suave: #ebe3d3;
+  --cor-superficie: #fbfaf7;
+  --cor-texto: #1f2a25;
+  --cor-texto-suave: #5d6761;
+  --cor-linha: #dcd6ca;
+  --cor-alerta: #a8322a;
+  --cor-alerta-suave: #f6e1de;
+  --cor-aviso: #9a6a00;
+  --cor-aviso-suave: #f6ecd2;
+  --cor-ok: #2f6b45;
+  --cor-ok-suave: #dcebe0;
+  --cor-info: #2e5f8a;
+  --cor-info-suave: #dde8f1;
+  --cor-whatsapp: #1f8f4e;
+
+  /* odontograma */
+  --dente-achado: #c0392b;
+  --dente-trabalho: #2e6da4;
+  --dente-feito: #2f8a52;
+  --dente-planejado: #d08a00;
+  --dente-ausente: #8a8f8c;
+
+  --fonte-titulo: "Tenor Sans", Georgia, serif;
+  --fonte-texto: "Outfit", -apple-system, "Segoe UI", sans-serif;
+  --raio: 14px;
+  --sombra: 0 1px 2px rgb(31 42 37 / 6%), 0 4px 16px rgb(31 42 37 / 6%);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) {
+    --cor-marca: #a9c8b9;
+    --cor-marca-suave: #24332c;
+    --cor-fundo: #151a17;
+    --cor-areia: #6f644f;
+    --cor-areia-suave: #2a2720;
+    --cor-superficie: #1d2420;
+    --cor-texto: #e9ece9;
+    --cor-texto-suave: #a4aca7;
+    --cor-linha: #323b36;
+    --cor-alerta: #f08a80;
+    --cor-alerta-suave: #3c2220;
+    --cor-aviso: #e6bd5c;
+    --cor-aviso-suave: #3a301a;
+    --cor-ok: #86c99e;
+    --cor-ok-suave: #1f3427;
+    --cor-info: #8fbde3;
+    --cor-info-suave: #1d2c39;
+    --cor-whatsapp: #23985a;
+    --dente-achado: #ee7b6f;
+    --dente-trabalho: #78aee0;
+    --dente-feito: #74c995;
+    --dente-planejado: #f0b546;
+    --dente-ausente: #7d8580;
+    --sombra: 0 1px 2px rgb(0 0 0 / 30%);
+    color-scheme: dark;
+  }
+}
