@@ -6,8 +6,9 @@ com o Claude no celular e o Claude grava na base por um conector próprio (MCP).
 Tem tudo o que o consultório precisa no dia a dia: pacientes, anamnese,
 odontograma e prontuário; agenda com o aluguel da sala; orçamento, receita,
 atestado e termos em PDF; estoque com baixa automática por procedimento;
-financeiro com recibos do Receita Saúde e pacote do contador. São 29
-ferramentas no conector MCP e um app do iPad só de leitura. Só dados fictícios
+financeiro com recibos do Receita Saúde e pacote do contador; preços de
+campanha e calculadora de preço. São 32 ferramentas no conector MCP e um app
+do iPad só de leitura. Só dados fictícios
 de pacientes; os dados do consultório e os preços são os reais.
 
 ## Como funciona
@@ -65,6 +66,7 @@ Os módulos estão documentados à parte: agenda e iPad (abaixo),
 | Estoque | `registrar_compra` (vira despesa), `movimentar_estoque`, `ver_estoque`, `salvar_material` |
 | Financeiro | `registrar_pagamento`, `registrar_despesa`, `ver_financeiro`, `marcar_recibos`, `configurar_financeiro`, `gerar_pacote_contador` |
 | iPad | `acesso_ipad` (gera, lista e revoga o link do app) |
+| Preços | `salvar_campanha` (preços só de uma campanha, ex.: Campanha RJ; os normais não mudam), `ver_campanhas`, `calcular_preco` (lucro no Pix, débito e crédito 1x a 12x, com imposto e custos do kit) |
 
 ### App do iPad
 
@@ -98,7 +100,7 @@ supabase/
   functions/mcp/     Edge Function do servidor MCP
     index.ts         entrada (chave secreta, chamada ao PostgREST, Storage)
     servidor.ts      ferramentas do prontuário e HTTP (sem dependência de Deno/Supabase)
-    ferramentas/     módulos: agenda, documentos, estoque, financeiro, ipad
+    ferramentas/     módulos: agenda, documentos, estoque, financeiro, ipad, precos
     documentos/      PDFs (pdf-lib)
     financeiro/      planilhas e lote do Receita Saúde
     catalogos/       condições do odontograma e perguntas da anamnese (JSON)

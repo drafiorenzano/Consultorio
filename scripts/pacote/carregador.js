@@ -1,4 +1,4 @@
-// Conector MCP do consultório, versão 0.3.0 (29 ferramentas).
+// Conector MCP do consultório, versão 0.4.0 (32 ferramentas).
 //
 // Este arquivo é o que vai publicado como index.js da função "mcp" (com o
 // deno.json de supabase/functions/mcp). O código-fonte do servidor está em
@@ -12,7 +12,7 @@ import { z } from "zod";
 import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // Trocado pelo montar.sh a cada pacote novo.
-const ESPERADO = "728cc2cd3e8537e1f81cb0b675a29be6a7a49d6c4de20c4b4f7bdc49c07e0388";
+const ESPERADO = "ba40f427d6cfcfe97dac230a11a9f870fd7253910972d948e0e848c20a52bbff";
 const MODULOS = {
   "@modelcontextprotocol/sdk/server/mcp.js": { McpServer },
   "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js": { WebStandardStreamableHTTPServerTransport },

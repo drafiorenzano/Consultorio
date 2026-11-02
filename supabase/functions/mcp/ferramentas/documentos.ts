@@ -141,6 +141,9 @@ const esquemaMontar = {
   separado: z.boolean().optional().describe(
     "true para um orçamento à parte; sem isso, um orçamento em aberto do paciente vira versão nova.",
   ),
+  campanha: z.string().optional().describe(
+    'Preços de campanha: nome da campanha, ou "nenhuma" para os preços normais. Sem isso: a campanha de hoje, se houver.',
+  ),
   texto_original: textoOriginal(),
 };
 type ArgsMontar = z.infer<z.ZodObject<typeof esquemaMontar>>;

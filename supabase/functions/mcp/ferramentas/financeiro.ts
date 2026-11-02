@@ -220,6 +220,9 @@ const esquemaConfig = {
     "Taxas da maquininha por forma (pix, debito, credito_vista, credito_parcelado, boleto...). " +
       "Só os campos ditos mudam.",
   ),
+  imposto_percentual: z.number().min(0).max(50).optional().describe(
+    "Imposto sobre o valor cobrado, usado na calculadora de preço (padrão 6).",
+  ),
   observacoes: z.string().optional(),
   texto_original: textoOriginal(),
 };

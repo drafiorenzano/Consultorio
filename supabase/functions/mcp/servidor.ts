@@ -28,15 +28,16 @@ import { modulo as documentos } from "./ferramentas/documentos.ts";
 import { modulo as estoque } from "./ferramentas/estoque.ts";
 import { modulo as financeiro } from "./ferramentas/financeiro.ts";
 import { modulo as ipad } from "./ferramentas/ipad.ts";
+import { modulo as precos } from "./ferramentas/precos.ts";
 import condicoes from "./catalogos/condicoes.json" with { type: "json" };
 import perguntas from "./catalogos/anamnese.json" with { type: "json" };
 
-export const VERSAO = "0.3.0";
+export const VERSAO = "0.4.0";
 
 export { type Arquivos, type Dependencias, ErroRpc, type Rpc } from "./comum.ts";
 
 /** Módulos de ferramentas (cada um no seu arquivo em ferramentas/). */
-export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro, ipad];
+export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro, ipad, precos];
 
 const INSTRUCOES_BASE = `Ferramentas do prontuário do consultório odontológico da Dra. Andressa.
 Quem fala com você é a própria dentista, quase sempre por ditado no celular, logo depois de atender.
@@ -505,7 +506,7 @@ export function criarServidor(deps: Dependencias): McpServer {
       title: "Listar procedimentos",
       description:
         "Mostra o catálogo de procedimentos da Dra. com código e preço. Itens sem preço trazem só a faixa de mercado " +
-        "como referência: não diga que é o preço dela.",
+        "como referência: não diga que é o preço dela. Em dia de campanha, traz também o preco_campanha.",
       inputSchema: esquemaListaProcedimentos,
       annotations: LEITURA,
     },

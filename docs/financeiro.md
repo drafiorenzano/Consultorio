@@ -77,15 +77,39 @@ chamada é uma transação só e abre a solicitação com `iniciar_solicitacao`.
 
 Todas as tabelas têm RLS ligado e nenhuma policy. Só o `service_role` executa as funções.
 
-## Taxas da maquininha (referência, a conferir)
+## Taxas da maquininha (InfinitePay, a confirmar o plano)
+
+Tabela pública da InfinitePay em 02/11/2026: Plano Inicial (até R$ 20 mil por
+mês), recebimento em 1 dia útil, Visa e Mastercard
+([infinitepay.io/taxas](https://infinitepay.io/taxas)). Se o plano dela for
+outro, ela muda com `configurar_financeiro`.
 
 | Forma | % | Dias |
 | --- | --- | --- |
 | PIX, dinheiro, transferência | 0 | 0 |
-| Débito | 1,37 | 0 |
-| Crédito à vista | 3,15 | 0 |
-| Crédito parcelado | 3,15 + 1,40 por parcela além da primeira (ou a tabela `por_parcelas`) | 0 |
+| Débito | 1,37 | 1 |
+| Crédito à vista | 3,15 | 1 |
+| Crédito 2x a 12x (`por_parcelas`) | 5,39 · 6,12 · 6,85 · 7,57 · 8,28 · 8,99 · 9,69 · 10,38 · 11,06 · 11,74 · 12,40 | 1 |
 | Boleto | 0 | 1 |
+
+O imposto da calculadora de preço (`calcular_preco`) fica em
+`configuracao_financeira.imposto_percentual` (padrão 6%).
+
+## Campanhas e calculadora de preço
+
+- `campanhas` e `campanha_precos`: uma campanha tem nome, datas (até 60 dias),
+  local e os preços que mudam. Preço de campanha nulo = volta ao normal. Nada se
+  apaga: campanha se cancela. Uma campanha por dia.
+- `montar_orcamento` usa, nesta ordem: o valor ditado, o preço da campanha
+  (a pedida; senão a do orçamento em aberto; senão a de hoje) e o preço do
+  catálogo. `campanha: "nenhuma"` usa só o catálogo. O orçamento guarda
+  `campanha_id` e o PDF diz "Valores da Campanha X".
+- Nos dias de campanha a confirmação por WhatsApp leva o local da campanha e a
+  agenda não cobra reserva de sala.
+- `calcular_preco`: lucro = preço − taxa da forma − imposto sobre o preço −
+  custos (kit do procedimento e kit base pelo custo médio do estoque, sala, e
+  os custos ditos). Com `margem_desejada`, sugere o preço (no Pix) e diz quanto
+  cobrar em cada forma para manter a margem.
 
 ## Pacote do contador
 
