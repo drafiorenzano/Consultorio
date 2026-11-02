@@ -3,53 +3,8 @@
 // as chamadas. Rodar com:
 //   deno test --allow-read --config supabase/functions/mcp/deno.json tests/
 
-import { criarHandler, ErroRpc, sha256Hex, tokenDaUrl } from "../supabase/functions/mcp/servidor.ts";
-
-const TOKEN = "tokenDeTeste_0123456789abcdefghijklmnopqrstuv";
-const BASE = "https://exemplo.supabase.co/functions/v1/mcp";
-
-function igual(a: unknown, b: unknown, msg = "") {
-  const ja = JSON.stringify(a), jb = JSON.stringify(b);
-  if (ja !== jb) throw new Error(`${msg}\n  esperado: ${jb}\n  obtido:   ${ja}`);
-}
-function verdade(cond: unknown, msg: string) {
-  if (!cond) throw new Error(msg);
-}
-
-async function montar(respostas: Record<string, (args: Record<string, unknown>) => unknown> = {}) {
-  const chamadas: { funcao: string; args: Record<string, unknown> }[] = [];
-  const hashValido = await sha256Hex(TOKEN);
-  const handler = criarHandler({
-    rpc: (funcao, args) => {
-      chamadas.push({ funcao, args });
-      const r = respostas[funcao];
-      return Promise.resolve(r ? r(args) : { ok: true });
-    },
-    acessoValido: (hash) => Promise.resolve(hash === hashValido),
-  });
-  let id = 0;
-  async function mcp(method: string, params: Record<string, unknown> = {}, token = TOKEN) {
-    const res = await handler(
-      new Request(`${BASE}/${token}`, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "accept": "application/json, text/event-stream",
-          "mcp-protocol-version": "2025-11-25",
-        },
-        body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }),
-      }),
-    );
-    return { status: res.status, corpo: res.status === 200 ? await res.json() : await res.text() };
-  }
-  return { handler, chamadas, mcp };
-}
-
-const INIT = {
-  protocolVersion: "2025-11-25",
-  capabilities: {},
-  clientInfo: { name: "teste", version: "1" },
-};
+import { ErroRpc, tokenDaUrl } from "../supabase/functions/mcp/servidor.ts";
+import { BASE, igual, INIT, montar, TOKEN, verdade } from "./util.ts";
 
 Deno.test("token: extrai da URL e recusa formatos estranhos", () => {
   igual(tokenDaUrl(`${BASE}/${TOKEN}`), TOKEN);

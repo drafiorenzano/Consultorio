@@ -11,28 +11,33 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { z } from "zod";
+import {
+  data,
+  type Dependencias,
+  executar,
+  GRAVACAO,
+  hora,
+  LEITURA,
+  type Modulo,
+  NOTA_TEXTO_ORIGINAL,
+  paciente_id,
+  textoOriginal,
+} from "./comum.ts";
+import { modulo as agenda } from "./ferramentas/agenda.ts";
+import { modulo as documentos } from "./ferramentas/documentos.ts";
+import { modulo as estoque } from "./ferramentas/estoque.ts";
+import { modulo as financeiro } from "./ferramentas/financeiro.ts";
 import condicoes from "./catalogos/condicoes.json" with { type: "json" };
 import perguntas from "./catalogos/anamnese.json" with { type: "json" };
 
-export const VERSAO = "0.2.0";
+export const VERSAO = "0.3.0";
 
-export type Rpc = (funcao: string, argumentos: Record<string, unknown>) => Promise<unknown>;
+export { type Arquivos, type Dependencias, ErroRpc, type Rpc } from "./comum.ts";
 
-export interface Dependencias {
-  /** Chama uma função do Postgres (PostgREST /rpc). Lança ErroRpc em caso de erro. */
-  rpc: Rpc;
-  /** Diz se o SHA-256 (hex) do token da URL é um acesso válido. */
-  acessoValido: (tokenSha256: string) => Promise<boolean>;
-}
+/** Módulos de ferramentas (cada um no seu arquivo em ferramentas/). */
+export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro];
 
-export class ErroRpc extends Error {
-  constructor(message: string, readonly dica?: string, readonly codigo?: string) {
-    super(message);
-    this.name = "ErroRpc";
-  }
-}
-
-const INSTRUCOES = `Ferramentas do prontuário do consultório odontológico da Dra. Andressa.
+const INSTRUCOES_BASE = `Ferramentas do prontuário do consultório odontológico da Dra. Andressa.
 Quem fala com você é a própria dentista, quase sempre por ditado no celular, logo depois de atender.
 
 Regras:
@@ -49,7 +54,10 @@ Regras:
 - Preços: só mude com salvar_procedimento depois de a Dra. confirmar o valor novo.
 - Datas no formato AAAA-MM-DD, horários HH:MM, fuso de São Paulo.`;
 
-const NOTA_TEXTO_ORIGINAL = "O pedido da Dra., palavra por palavra (vai para a auditoria).";
+export function instrucoes(): string {
+  const extras = MODULOS.flatMap((m) => m.instrucoes).map((l) => `- ${l}`);
+  return [INSTRUCOES_BASE, ...extras].join("\n");
+}
 
 const TIPOS_ALERTA = [
   "alergia",
@@ -154,50 +162,6 @@ export function textoCondicoes(): string {
   }
   return [...grupos].map(([t, cods]) => `${nomes[t] ?? t}: ${cods.join(", ")}`).join("\n");
 }
-
-const data = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use AAAA-MM-DD");
-const hora = () => z.string().regex(/^\d{1,2}:\d{2}$/, "Use HH:MM");
-
-type Resultado = { content: { type: "text"; text: string }[]; isError?: boolean };
-
-function texto(valor: unknown): string {
-  return JSON.stringify(valor, null, 1);
-}
-
-async function executar(
-  deps: Dependencias,
-  ferramenta: string,
-  funcao: string,
-  argumentos: Record<string, unknown>,
-  grava: boolean,
-): Promise<Resultado> {
-  try {
-    const resposta = await deps.rpc(funcao, argumentos);
-    return { content: [{ type: "text", text: texto(resposta) }] };
-  } catch (e) {
-    const erro = e instanceof ErroRpc ? e : new ErroRpc(e instanceof Error ? e.message : String(e));
-    // Guarda a tentativa que falhou (a transação dela foi desfeita).
-    try {
-      await deps.rpc("mcp_registrar_falha", {
-        p_ferramenta: ferramenta,
-        p_argumentos: argumentos.p_dados ?? argumentos,
-        p_texto_original: argumentos.p_texto_original ?? null,
-        p_erro: erro.message,
-      });
-    } catch (_) {
-      // Sem registro da falha não é motivo para esconder o erro original.
-    }
-    const partes = [
-      grava ? "Nada foi gravado." : "A consulta não foi feita.",
-      erro.message,
-      erro.dica ?? "",
-    ].filter(Boolean);
-    return { isError: true, content: [{ type: "text", text: partes.join(" ") }] };
-  }
-}
-
-const paciente_id = () => z.string().describe("Id devolvido por buscar_paciente.");
-const textoOriginal = () => z.string().min(1).describe(NOTA_TEXTO_ORIGINAL);
 
 const alerta = z.object({
   tipo: z.enum(TIPOS_ALERTA),
@@ -402,13 +366,10 @@ const esquemaProcedimento = {
 };
 type ArgsProcedimento = z.infer<z.ZodObject<typeof esquemaProcedimento>>;
 
-const LEITURA = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
-const GRAVACAO = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-
 export function criarServidor(deps: Dependencias): McpServer {
   const servidor = new McpServer(
     { name: "consultorio", title: "Consultório", version: VERSAO },
-    { instructions: INSTRUCOES },
+    { instructions: instrucoes() },
   );
 
   servidor.registerTool(
@@ -573,6 +534,8 @@ export function criarServidor(deps: Dependencias): McpServer {
       }, true);
     },
   );
+
+  for (const m of MODULOS) m.registrar(servidor, deps);
 
   return servidor;
 }
