@@ -37,11 +37,13 @@ Deno.test("initialize traz nome, versão e instruções em português", async ()
   verdade(res.capabilities.tools, "sem capacidade de ferramentas");
 });
 
-Deno.test("tools/list: 8 ferramentas, leitura x gravação, nenhuma destrutiva", async () => {
+Deno.test("tools/list: ferramentas do prontuário, leitura x gravação, nenhuma destrutiva", async () => {
   const { mcp } = await montar();
   const r = await mcp("tools/list");
   const tools = (r.corpo as any).result.tools as any[];
-  igual(tools.map((t) => t.name).sort(), [
+  const nomes = tools.map((t) => t.name);
+  igual(new Set(nomes).size, nomes.length, "nomes repetidos");
+  const base = [
     "atualizar_paciente",
     "buscar_paciente",
     "cadastrar_paciente",
@@ -50,7 +52,9 @@ Deno.test("tools/list: 8 ferramentas, leitura x gravação, nenhuma destrutiva",
     "registrar_atendimento",
     "registrar_odontograma",
     "salvar_procedimento",
-  ]);
+  ];
+  for (const n of base) verdade(nomes.includes(n), `falta ${n}`);
+  for (const t of tools) verdade(t.description && t.annotations, `${t.name} sem descrição ou anotações`);
   const porNome = Object.fromEntries(tools.map((t) => [t.name, t]));
   for (const t of tools) igual(t.annotations.destructiveHint, false, `${t.name} destrutiva`);
   igual(porNome.buscar_paciente.annotations.readOnlyHint, true);
