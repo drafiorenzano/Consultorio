@@ -5,3 +5,7 @@ project_id = "consultorio"
 # O Claude não envia JWT do Supabase; o acesso é conferido na própria função.
 verify_jwt = false
 import_map = "./functions/mcp/deno.json"
+
+[functions.painel]
+# O app do iPad manda o código de acesso no cabeçalho x-acesso; sem JWT.
+verify_jwt = false
