@@ -24,20 +24,22 @@ import {
   textoOriginal,
 } from "./comum.ts";
 import { modulo as agenda } from "./ferramentas/agenda.ts";
+import { modulo as calendario } from "./ferramentas/calendario.ts";
 import { modulo as documentos } from "./ferramentas/documentos.ts";
 import { modulo as estoque } from "./ferramentas/estoque.ts";
+import { modulo as fichaOnline } from "./ferramentas/ficha_online.ts";
 import { modulo as financeiro } from "./ferramentas/financeiro.ts";
 import { modulo as ipad } from "./ferramentas/ipad.ts";
 import { modulo as precos } from "./ferramentas/precos.ts";
 import condicoes from "./catalogos/condicoes.json" with { type: "json" };
 import perguntas from "./catalogos/anamnese.json" with { type: "json" };
 
-export const VERSAO = "0.4.0";
+export const VERSAO = "0.5.0";
 
 export { type Arquivos, type Dependencias, ErroRpc, type Rpc } from "./comum.ts";
 
 /** Módulos de ferramentas (cada um no seu arquivo em ferramentas/). */
-export const MODULOS: Modulo[] = [agenda, documentos, estoque, financeiro, ipad, precos];
+export const MODULOS: Modulo[] = [agenda, calendario, documentos, estoque, fichaOnline, financeiro, ipad, precos];
 
 const INSTRUCOES_BASE = `Ferramentas do prontuário do consultório odontológico da Dra. Andressa.
 Quem fala com você é a própria dentista, quase sempre por ditado no celular, logo depois de atender.

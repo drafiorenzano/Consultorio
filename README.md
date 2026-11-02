@@ -7,9 +7,10 @@ Tem tudo o que o consultório precisa no dia a dia: pacientes, anamnese,
 odontograma e prontuário; agenda com o aluguel da sala; orçamento, receita,
 atestado e termos em PDF; estoque com baixa automática por procedimento;
 financeiro com recibos do Receita Saúde e pacote do contador; preços de
-campanha e calculadora de preço. São 32 ferramentas no conector MCP e um app
-do iPad só de leitura. Só dados fictícios
-de pacientes; os dados do consultório e os preços são os reais.
+campanha e calculadora de preço; agenda no app Calendário do iPhone/iPad e
+ficha online que o paciente preenche antes da consulta. São 36 ferramentas no
+conector MCP e um app do iPad só de leitura. Desde 02/11/2026 a base tem dados
+reais de pacientes: testes só em transação desfeita (rollback).
 
 ## Como funciona
 
@@ -67,6 +68,8 @@ Os módulos estão documentados à parte: agenda e iPad (abaixo),
 | Financeiro | `registrar_pagamento`, `registrar_despesa`, `ver_financeiro`, `marcar_recibos`, `configurar_financeiro`, `gerar_pacote_contador` |
 | iPad | `acesso_ipad` (gera, lista e revoga o link do app) |
 | Preços | `salvar_campanha` (preços só de uma campanha, ex.: Campanha RJ; os normais não mudam), `ver_campanhas`, `calcular_preco` (lucro no Pix, débito e crédito 1x a 12x, com imposto e custos do kit) |
+| Calendário | `acesso_calendario` (gera, lista e revoga o link de assinatura da agenda no app Calendário) |
+| Ficha online | `ficha_online` (link pessoal com mensagem pronta para o WhatsApp; lista e cancela), `ver_ficha_online` (o que o paciente respondeu ao lado da ficha), `confirmar_ficha_online` (grava ou descarta, com campos a ignorar) |
 
 ### App do iPad
 
@@ -80,6 +83,35 @@ PDFs ganham link temporário (1 h). Cores e fontes ficam em `app/tema.css`.
 O workflow `.github/workflows/app-ipad.yml` publica a pasta no GitHub Pages
 (Settings > Pages > Source: GitHub Actions); o endereço vai em
 `configuracao.painel_url` e o link de acesso sai pela ferramenta `acesso_ipad`.
+
+### Agenda no Calendário do iPhone/iPad
+
+A Edge Function `calendario` serve a agenda em iCal (`GET
+/functions/v1/calendario/<código>`), só leitura, de 60 dias atrás a 13 meses
+à frente: consultas (primeiro nome + inicial do sobrenome e procedimento, "✓"
+quando confirmada), reservas da sala e campanhas (as duas como "livre"). O
+código tem escopo `calendario` em `acessos_mcp` (o hash, nunca o código) e sai
+pela ferramenta `acesso_calendario` como link `webcal://`; no iPhone, tocar no
+link abre "Assinar". O Calendário atualiza sozinho (pede a cada 15 min; o iOS
+decide quando). O endereço das funções fica em `configuracao.funcoes_url`.
+
+### Ficha online
+
+O paciente preenche cadastro e anamnese pelo celular antes da consulta.
+`ficha_online` (enviar) cria uma linha em `fichas_online` com o SHA-256 de um
+código aleatório e devolve o link `<configuracao.ficha_url>/#c=<código>`: o
+código fica depois do `#`, então não chega ao servidor que hospeda a página.
+A página (`app/ficha/index.html`, um arquivo só, sem dependências) fala com a
+Edge Function `ficha` (`POST {acao: exemplo|abrir|enviar}`), que chama
+`ficha_online_abrir` e `ficha_online_enviar`. O link vale 7 dias (1 a 30),
+serve para um envio só, e um link novo cancela o anterior do mesmo paciente.
+As respostas são validadas no banco (`ficha_online_normalizar`) e ficam em
+`fichas_online.respostas` até a Dra. revisar (`ver_ficha_online`) e confirmar
+(`confirmar_ficha_online`, que chama `mcp_atualizar_paciente` e
+`mcp_registrar_anamnese` com origem `formulario`). A página guarda o rascunho
+só no `sessionStorage`. `<ficha_url>/#exemplo` mostra o formulário sem enviar
+nada. A versão do termo aceito (`ficha_online_termo_versao()`) precisa bater
+com a constante `TERMO` da página.
 
 Catálogos de condições do odontograma e perguntas da anamnese ficam em JSON
 (`supabase/functions/mcp/catalogos/`) e alimentam tanto as descrições das
@@ -100,13 +132,16 @@ supabase/
   functions/mcp/     Edge Function do servidor MCP
     index.ts         entrada (chave secreta, chamada ao PostgREST, Storage)
     servidor.ts      ferramentas do prontuário e HTTP (sem dependência de Deno/Supabase)
-    ferramentas/     módulos: agenda, documentos, estoque, financeiro, ipad, precos
+    ferramentas/     módulos: agenda, calendario, documentos, estoque, ficha_online, financeiro, ipad, precos
     documentos/      PDFs (pdf-lib)
     financeiro/      planilhas e lote do Receita Saúde
     catalogos/       condições do odontograma e perguntas da anamnese (JSON)
     deno.json        dependências
   functions/painel/  API só de leitura do app do iPad
+  functions/calendario/  agenda em iCal para o app Calendário
+  functions/ficha/   API pública da ficha online (abrir e enviar)
 app/                 app do iPad (PWA estática)
+app/ficha/           página da ficha online que o paciente abre
 scripts/             gerador do SQL dos catálogos; pacote/ monta e carrega o conector publicado
 tests/               testes do servidor MCP e dos catálogos (sem banco)
 docs/                instruções do Project e roteiro de teste no iPhone
@@ -131,7 +166,9 @@ supabase functions deploy mcp --no-verify-jwt
 Pela API/MCP do Supabase, mande `import_map_path: "deno.json"` junto com todos
 os arquivos da pasta (menos `deno.lock`): sem isso o deploy reaproveita o
 caminho da versão anterior e falha. `supabase functions deploy painel
---no-verify-jwt` publica a API do iPad.
+--no-verify-jwt` publica a API do iPad; `calendario` e `ficha` vão do mesmo
+jeito (as duas sem JWT: a primeira confere o código da URL, a segunda o código
+da ficha).
 
 **Como está publicado hoje.** O servidor completo ficou grande demais para um
 envio só pela API, e o publicador do Supabase não importa código de
@@ -166,6 +203,7 @@ Revogar: `update acessos_mcp set revogado_em = now() where id = '...';`
 ## Próximas etapas
 
 ~~1) base e prontuário~~, ~~2) agenda e app do iPad~~, ~~3) PDFs~~,
-~~4) estoque e financeiro~~ (feitos). Falta 5) entrega: limpar os dados de
-demonstração, login OAuth no lugar do token na URL, unificar os preços com o
-site e ajustar os padrões com as respostas da Dra.
+~~4) estoque e financeiro~~, ~~calendário e ficha online~~ (feitos). Os dados
+de demonstração foram apagados em 02/11/2026. Falta: login OAuth no lugar do
+token na URL, unificar os preços com o site e ajustar os padrões com as
+respostas da Dra.

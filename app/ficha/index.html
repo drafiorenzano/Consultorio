@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#2C4A3E">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src https://wyubbsqurhqrztpexkdc.supabase.co; base-uri 'none'; form-action 'none'">
+<title>Ficha do paciente · Dra. Andressa Fiorenzano</title>
+<style>
+  :root {
+    --ink: #2c4a3e;
+    --ink-soft: #3d5e51;
+    --bg: #ffffff;
+    --bg-warm: #f0ede6;
+    --sand: #d4c5a9;
+    --sand-soft: #e3d8c2;
+    --text: #1f2a24;
+    --muted: #6b7570;
+    --erro: #a3322a;
+    --erro-bg: #fbeeec;
+    --display: "Tenor Sans", "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --body: "Outfit Variable", "Outfit", -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--bg-warm); color: var(--text);
+    font-family: var(--body); font-size: 16px; line-height: 1.5; -webkit-font-smoothing: antialiased;
+  }
+  .topo { background: var(--bg); border-bottom: 1px solid var(--sand-soft); }
+  .topo .dentro { max-width: 640px; margin: 0 auto; padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+  .topo svg { width: 40px; height: 40px; flex: none; }
+  .topo .nome { font-family: var(--display); font-size: 1.05rem; color: var(--ink); line-height: 1.2; }
+  .topo .sub { font-size: .8rem; color: var(--muted); }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px 120px; }
+  .progresso { margin: 4px 0 16px; }
+  .progresso .texto { font-size: .8rem; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .progresso .barra { height: 4px; background: var(--sand-soft); border-radius: 2px; overflow: hidden; }
+  .progresso .barra i { display: block; height: 100%; background: var(--ink); width: 0; transition: width .25s ease; }
+  .cartao { background: var(--bg); border: 1px solid var(--sand-soft); border-radius: 14px; padding: 20px 16px; }
+  h1, h2 { font-family: var(--display); font-weight: 400; color: var(--ink); line-height: 1.25; margin: 0 0 8px; }
+  h1 { font-size: 1.6rem; }
+  h2 { font-size: 1.3rem; }
+  h3 { font-size: 1rem; font-weight: 500; margin: 20px 0 8px; color: var(--ink); }
+  p { margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  .aviso-exemplo { background: var(--sand-soft); color: var(--ink); border-radius: 10px; padding: 10px 12px; font-size: .9rem; margin-bottom: 12px; }
+  .campo { margin: 14px 0; }
+  .campo > label, .campo > .rotulo { display: block; font-weight: 500; margin-bottom: 6px; }
+  .campo .dica { display: block; font-size: .85rem; color: var(--muted); margin: -2px 0 6px; font-weight: 400; }
+  .opcional { font-weight: 400; color: var(--muted); font-size: .85rem; }
+  input[type=text], input[type=email], input[type=tel], select, textarea {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text); background: #fff;
+    border: 1px solid #c9c3b6; border-radius: 10px; padding: 12px; min-height: 48px; appearance: none; -webkit-appearance: none;
+  }
+  select { background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 20px) 50%, calc(100% - 15px) 50%; background-size: 5px 5px; background-repeat: no-repeat; padding-right: 36px; }
+  textarea { min-height: 88px; resize: vertical; }
+  input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .linha { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .linha-3 { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
+  @media (max-width: 360px) { .linha, .linha-3 { grid-template-columns: 1fr; } }
+  .escolhas { display: flex; flex-wrap: wrap; gap: 8px; }
+  .escolhas label {
+    position: relative; flex: 1 1 auto; min-width: 84px; display: flex; align-items: center; justify-content: center; text-align: center;
+    min-height: 44px; padding: 8px 12px; border: 1px solid #c9c3b6; border-radius: 999px; background: #fff; cursor: pointer; font-weight: 400;
+  }
+  .escolhas input { position: absolute; opacity: 0; pointer-events: none; }
+  .escolhas input:checked + span { font-weight: 500; }
+  .escolhas label:has(input:checked) { background: var(--ink); border-color: var(--ink); color: #fff; }
+  .escolhas label:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 2px; }
+  .escolhas.coluna { flex-direction: column; }
+  .escolhas.coluna label { justify-content: flex-start; text-align: left; border-radius: 12px; }
+  .pergunta { padding: 14px 0; border-top: 1px solid var(--sand-soft); }
+  .pergunta:first-of-type { border-top: 0; }
+  .pergunta .rotulo { font-weight: 400; margin-bottom: 10px; display: block; }
+  .pergunta .detalhe { margin-top: 10px; }
+  .marcar, .campo > label.marcar { display: flex; gap: 10px; align-items: flex-start; margin: 14px 0; font-weight: 400; cursor: pointer; }
+  .marcar input { width: 22px; height: 22px; margin: 1px 0 0; flex: none; accent-color: var(--ink); }
+  .erro-campo { color: var(--erro); font-size: .85rem; margin-top: 6px; }
+  .invalido input, .invalido select, .invalido textarea, .invalido .escolhas label { border-color: var(--erro); }
+  .alerta { background: var(--erro-bg); color: var(--erro); border-radius: 10px; padding: 12px; margin: 12px 0; }
+  .ok { text-align: center; padding: 32px 16px; }
+  .ok .selo { width: 64px; height: 64px; border-radius: 50%; background: var(--ink); color: #fff; display: inline-flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 12px; }
+  details { border: 1px solid var(--sand-soft); border-radius: 10px; padding: 10px 12px; background: #fbfaf7; }
+  details summary { cursor: pointer; font-weight: 500; color: var(--ink); }
+  details[open] summary { margin-bottom: 8px; }
+  details p, details li { font-size: .9rem; }
+  details ul { padding-left: 18px; margin: 0; }
+  .resumo dt { color: var(--muted); font-size: .85rem; }
+  .resumo dd { margin: 0 0 8px; }
+  .lista-sim { margin: 0; padding-left: 18px; }
+  .rodape-nav {
+    position: fixed; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,.97); border-top: 1px solid var(--sand-soft);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .rodape-nav .dentro { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; }
+  button { font: inherit; font-size: 16px; border-radius: 999px; min-height: 48px; padding: 0 20px; cursor: pointer; border: 1px solid var(--ink); }
+  .primario { background: var(--ink); color: #fff; flex: 1; font-weight: 500; }
+  .primario[disabled] { opacity: .6; cursor: progress; }
+  .secundario { background: #fff; color: var(--ink); }
+  a { color: var(--ink); }
+  .botao-link { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border-radius: 999px; background: var(--ink); color: #fff; text-decoration: none; font-weight: 500; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="topo">
+  <div class="dentro">
+    <svg xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Logo Dra. Andressa Fiorenzano" viewBox="0 0 639 613"><path fill="#3e4039" fill-rule="evenodd" d="M396 199.58c-8.33 2.18-18.36 7.48-30 15.84-28.17 20.23-33.07 23.6-40.5 27.88a114 114 0 0 1-16 7.38c-7.15 2.48-9.37 2.77-21 2.77-10.84 0-13.96-.36-18.77-2.16-7.14-2.66-6.52-1.22 1.14 2.65 9.55 4.81 16.59 6.46 27.63 6.45 18.6-.01 34.15-6.02 66.9-25.85 20.79-12.58 28.01-16.03 36.73-17.55 19.48-3.4 44.13 11.47 54.75 33.01 6.2 12.58 8.39 24.5 7.95 43.26-.26 11.32-.06 14.66.88 14.3.67-.26 4.94-1.47 9.5-2.69 4.56-1.21 8.85-2.64 9.54-3.16 1.6-1.22 1.7-20.37.16-31.39-3.94-28.4-21.14-53.6-44.22-64.79-5.05-2.45-12.12-5.14-15.69-5.98-8.1-1.9-21.74-1.88-29 .03m-274.04 2.52c-17.85 2.3-37.46 10.97-48.96 21.6-12.88 11.93-18.95 24.67-19.66 41.3l-.4 9.5 2.87-7.5c1.59-4.12 3.82-9.33 4.96-11.57 7.43-14.5 23.4-26.03 43.73-31.56 12-3.26 37.17-3.23 50.49.06 14.57 3.6 39.94 16.9 73.51 38.53 21.34 13.75 34.57 19.17 53.63 21.98 11.3 1.66 34.46 2.13 31.87.63-.82-.47-7.1-2.52-13.93-4.56-25.66-7.65-39.37-14.82-60.04-31.42-20.16-16.19-39.18-28.48-57.53-37.18-19.6-9.29-39.56-12.52-60.54-9.81m71.54 86.92c-46.48 3.34-78.1 26.66-93.54 68.98-2.12 5.8-3.27 7.65-5.1 8.19-1.3.37-6.19 1.63-10.86 2.79a92 92 0 0 0-15.5 5.57c-6.97 3.45-22.47 14.27-22.49 15.7-.02 1.89 4.54.43 8.32-2.64 9.29-7.57 25.34-14.56 36.55-15.92l4.37-.53-.62 4.17-1.6 10.67c-2.56 16.85-1.1 36.42 5.27 70.5 2.89 15.48 3.17 18.74 3.13 36.5-.03 16.91-.33 20.56-2.23 27.5-5.11 18.61-15.31 32.31-29.45 39.55-4.43 2.27-6.74 4.05-6.75 5.2 0 2.22 1.46 2.18 6.7-.2 14.12-6.4 26.94-19.42 35.05-35.55 10.94-21.78 14.02-49.18 10.76-96-1.77-25.42-1.57-42.1.66-55.5.6-3.57 1.16-6.6 1.27-6.73.62-.76 19.6 2.19 27.49 4.28 24.2 6.41 46.16 22.77 55.2 41.14 2.28 4.62 2.37 5.7 2.37 26.81 0 22.98-.55 26.83-4.72 32.77a19 19 0 0 1-5.61 4.7l-3.67 1.94 26 .04c25.88.04 25.99.03 22.91-1.84-4.36-2.66-7.18-6.59-8.91-12.43-2.33-7.82-2.24-158.84.1-166.7a22.7 22.7 0 0 1 9.92-12.67c1.58-.95-1.8-1.17-16.52-1.1-10.18.05-23 .41-28.5.8m-13.15 5.09c-26.57 4.43-50.7 30.31-60.18 64.55l-1.98 7.11 8.71 1.12c30.67 3.93 57.34 18.84 71.76 40.12l4.4 6.5-.28-55.5c-.27-53.93-.34-55.6-2.34-59-3.45-5.88-7.85-6.95-20.1-4.9m298.16 25.1c-2.2.48-6.98 1.76-10.63 2.84l-6.63 1.97-1.67 6.75c-6.81 27.6-28.58 86.18-48.72 131.13-3.8 8.47-6.74 15.56-6.54 15.75.2.2 2.85-3.12 5.89-7.39a509 509 0 0 0 62.02-116.75c5.12-13.67 11.37-34.42 10.54-35-.14-.1-2.06.22-4.26.7"/><path fill="#c8a0a0" fill-rule="evenodd" d="M428.68 55.23c-1.02 9.41-5.13 22.93-9.49 31.23-6.98 13.29-21.43 25.52-33.19 28.09l-3.5.76 5.15 1.18c12.94 2.96 25.55 12.83 32.04 25.05 4.28 8.07 8.26 22.17 9.02 31.96l.62 7.99 2.28-12.47c1.26-6.86 3.25-15.18 4.44-18.5 6.7-18.73 18.25-30.5 33.45-34.1 3.9-.92 4.56-1.33 3-1.89-13.19-4.68-20.45-9.8-27.1-19.12-7.7-10.8-13.17-25.5-15.2-40.93l-.8-5.98zm68.82 245.71c-3.3.45-8.29 1.1-11.08 1.44-13.69 1.7-37.78 11.15-83.92 32.91-50.2 23.67-77.55 29.67-135.4 29.7l-15.4.01 3.4 2.25c1.91 1.27 4.5 4.44 5.9 7.25l2.5 5 .27 79.93c.24 70.95.09 80.56-1.34 85.46-1.88 6.48-3.3 8.73-7.12 11.25-2.78 1.83-2.54 1.85 20.02 1.85l22.82.01-3.02-2.54c-1.66-1.4-4.05-5.11-5.3-8.25-2.25-5.61-2.29-6.4-2.3-45.71l-.03-40 17 .08c15.2.06 17.62.31 22.83 2.35 6.35 2.47 11.96 6.85 14.83 11.57 1.82 2.98 1.83 2.85 1.84-15.48v-18.48l-2.5 3.68c-3.17 4.66-9.42 8.95-16.5 11.34-4.42 1.49-8.65 1.86-21.5 1.9l-16 .04v-91l14.19-.67c35.1-1.66 61.17-8 114.31-27.8 25.35-9.45 41.73-15.05 45.27-15.48 2.98-.37 18.71-4.54 21.23-5.63 11.18-4.84 54.12-6.19 68.67-2.16a108 108 0 0 1 31.5 14.2c4.86 3.2 9.19 5.62 9.62 5.35.95-.57-8.95-8.18-19.3-14.83-11.3-7.26-28.46-15.15-37.99-17.47-9.53-2.3-28.1-3.33-37.5-2.07"/></svg>
+    <div>
+      <div class="nome">Dra. Andressa Fiorenzano</div>
+      <div class="sub" id="topo-sub">Ficha do paciente</div>
+    </div>
+  </div>
+</header>
+<main id="app" aria-live="polite">
+  <div class="cartao"><p class="muted">Carregando a ficha…</p></div>
+</main>
+<nav class="rodape-nav" id="nav" hidden>
+  <div class="dentro">
+    <button type="button" class="secundario" id="voltar">Voltar</button>
+    <button type="button" class="primario" id="avancar">Continuar</button>
+  </div>
+</nav>
+<script>
+(() => {
+  "use strict";
+  const API = "https://wyubbsqurhqrztpexkdc.supabase.co/functions/v1/ficha";
+  const TERMO = "2026-11-02";
+  const UFS = ["AC","AL","AP","AM","BA","CE","DF","ES","GO","MA","MT","MS","MG","PA","PB","PR","PE","PI","RJ","RN","RS","RO","RR","SC","SP","SE","TO"];
+  const app = document.getElementById("app");
+  const nav = document.getElementById("nav");
+  const btVoltar = document.getElementById("voltar");
+  const btAvancar = document.getElementById("avancar");
+
+  // ---------- utilidades ----------
+  function el(tag, attrs, ...filhos) {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v === null || v === undefined || v === false) continue;
+      if (k === "class") n.className = v;
+      else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+      else if (v === true) n.setAttribute(k, "");
+      else n.setAttribute(k, String(v));
+    }
+    for (const f of filhos.flat()) {
+      if (f === null || f === undefined || f === false) continue;
+      n.append(f instanceof Node ? f : document.createTextNode(String(f)));
+    }
+    return n;
+  }
+  const digitos = (s) => String(s || "").replace(/\D/g, "");
+  function cpfValido(c) {
+    c = digitos(c);
+    if (c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+    for (const t of [9, 10]) {
+      let s = 0;
+      for (let i = 0; i < t; i++) s += Number(c[i]) * (t + 1 - i);
+      const d = ((s * 10) % 11) % 10;
+      if (d !== Number(c[t])) return false;
+    }
+    return true;
+  }
+  function mascara(valor, tipo) {
+    const d = digitos(valor);
+    if (tipo === "cpf") {
+      const x = d.slice(0, 11);
+      return x.replace(/^(\d{3})(\d)/, "$1.$2").replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3").replace(/\.(\d{3})(\d{1,2})$/, ".$1-$2");
+    }
+    if (tipo === "tel") {
+      const x = d.slice(0, 11);
+      if (x.length <= 2) return x.length ? "(" + x : "";
+      if (x.length <= 6) return "(" + x.slice(0, 2) + ") " + x.slice(2);
+      if (x.length <= 10) return "(" + x.slice(0, 2) + ") " + x.slice(2, 6) + "-" + x.slice(6);
+      return "(" + x.slice(0, 2) + ") " + x.slice(2, 7) + "-" + x.slice(7);
+    }
+    if (tipo === "cep") {
+      const x = d.slice(0, 8);
+      return x.length > 5 ? x.slice(0, 5) + "-" + x.slice(5) : x;
+    }
+    if (tipo === "data") {
+      const x = d.slice(0, 8);
+      if (x.length <= 2) return x;
+      if (x.length <= 4) return x.slice(0, 2) + "/" + x.slice(2);
+      return x.slice(0, 2) + "/" + x.slice(2, 4) + "/" + x.slice(4);
+    }
+    return valor;
+  }
+  function dataIso(br) {
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(br || "");
+    if (!m) return null;
+    const [_, dd, mm, aaaa] = m;
+    const d = new Date(Number(aaaa), Number(mm) - 1, Number(dd));
+    if (d.getFullYear() !== Number(aaaa) || d.getMonth() !== Number(mm) - 1 || d.getDate() !== Number(dd)) return null;
+    if (Number(aaaa) < 1900 || d > new Date()) return null;
+    return aaaa + "-" + mm + "-" + dd;
+  }
+  function idade(iso) {
+    if (!iso) return null;
+    const [a, m, d] = iso.split("-").map(Number);
+    const hoje = new Date();
+    let i = hoje.getFullYear() - a;
+    if (hoje.getMonth() + 1 < m || (hoje.getMonth() + 1 === m && hoje.getDate() < d)) i--;
+    return i;
+  }
+  const guardar = {
+    ler(k) { try { return JSON.parse(sessionStorage.getItem(k) || "null"); } catch (_) { return null; } },
+    gravar(k, v) { try { sessionStorage.setItem(k, JSON.stringify(v)); return true; } catch (_) { return false; } },
+    apagar(k) { try { sessionStorage.removeItem(k); } catch (_) { /* sem armazenamento */ } },
+  };
+
+  async function chamar(corpo) {
+    let r;
+    try {
+      r = await fetch(API, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo) });
+    } catch (_) {
+      throw new Error("Sem conexão. Verifique sua internet e tente de novo.");
+    }
+    let j = null;
+    try { j = await r.json(); } catch (_) { /* resposta vazia */ }
+    if (!r.ok) throw new Error((j && j.erro) || "Não consegui falar com o consultório agora. Tente de novo em alguns minutos.");
+    return j.dados;
+  }
+
+  // ---------- estado ----------
+  const hash = new URLSearchParams(location.hash.replace(/^#/, ""));
+  let codigo = hash.get("c") || "";
+  const exemplo = !codigo && (hash.has("exemplo") || location.hash === "#exemplo");
+  const CHAVE_CODIGO = "ficha-codigo";
+  if (codigo) {
+    // Tira o código da barra de endereço (fica só nesta aba, para recarregar).
+    if (guardar.gravar(CHAVE_CODIGO, codigo)) history.replaceState(null, "", location.pathname + location.search);
+  } else if (!exemplo) {
+    codigo = guardar.ler(CHAVE_CODIGO) || "";
+  }
+  const CHAVE = "ficha-rascunho-" + (exemplo ? "exemplo" : codigo.slice(0, 12));
+
+  const vazio = () => ({
+    preenchido_por: "paciente",
+    cadastro: { whatsapp: true, endereco: {}, contato_emergencia: {} },
+    responsavel: {},
+    anamnese: {},
+    observacoes: "",
+    consentimentos: { privacidade: false, veracidade: false },
+    passo: 0,
+  });
+  let dados = Object.assign(vazio(), guardar.ler(CHAVE) || {});
+  let def = null;
+  let passos = [];
+  let passo = 0;
+  let enviando = false;
+  const salvar = () => { dados.passo = passo; guardar.gravar(CHAVE, dados); };
+
+  function obter(caminho) {
+    return caminho.split(".").reduce((o, k) => (o == null ? undefined : o[k]), dados);
+  }
+  function definir(caminho, valor) {
+    const partes = caminho.split(".");
+    let o = dados;
+    for (const k of partes.slice(0, -1)) o = o[k] = o[k] && typeof o[k] === "object" ? o[k] : {};
+    o[partes[partes.length - 1]] = valor;
+    salvar();
+  }
+
+  // ---------- campos ----------
+  function campoTexto(caminho, rotulo, op) {
+    op = op || {};
+    const id = "f-" + caminho.replace(/\./g, "-");
+    const valorInicial = obter(caminho) || "";
+    const input = el(op.multilinha ? "textarea" : "input", {
+      id, name: id, type: op.multilinha ? null : (op.tipo || "text"),
+      inputmode: op.inputmode, autocomplete: op.autocomplete || "off", placeholder: op.placeholder,
+      maxlength: op.max || (op.multilinha ? 600 : 150), autocapitalize: op.capitalizar || null,
+    });
+    input.value = op.mascara ? mascara(valorInicial, op.mascara) : valorInicial;
+    input.addEventListener("input", () => {
+      if (op.mascara) {
+        const fim = input.selectionStart === input.value.length;
+        input.value = mascara(input.value, op.mascara);
+        if (fim) input.setSelectionRange(input.value.length, input.value.length);
+      }
+      definir(caminho, input.value);
+      limparErro(caixa);
+      if (op.aoMudar) op.aoMudar(input.value);
+    });
+    const caixa = el("div", { class: "campo", "data-campo": caminho },
+      el("label", { for: id }, rotulo, op.obrigatorio ? null : el("span", { class: "opcional" }, " (opcional)")),
+      op.dica ? el("span", { class: "dica" }, op.dica) : null,
+      input);
+    return caixa;
+  }
+  function campoSelect(caminho, rotulo, opcoes, op) {
+    op = op || {};
+    const id = "f-" + caminho.replace(/\./g, "-");
+    const sel = el("select", { id, name: id, autocomplete: op.autocomplete || "off" },
+      el("option", { value: "" }, op.vazio || "Escolha"),
+      opcoes.map(([v, t]) => el("option", { value: v }, t)));
+    sel.value = obter(caminho) || "";
+    sel.addEventListener("change", () => { definir(caminho, sel.value); limparErro(caixa); if (op.aoMudar) op.aoMudar(sel.value); });
+    const caixa = el("div", { class: "campo", "data-campo": caminho },
+      el("label", { for: id }, rotulo, op.obrigatorio ? null : el("span", { class: "opcional" }, " (opcional)")), sel);
+    return caixa;
+  }
+  function escolhas(nome, opcoes, atual, aoMudar, coluna) {
+    return el("div", { class: "escolhas" + (coluna ? " coluna" : ""), role: "radiogroup" },
+      opcoes.map(([v, t]) => {
+        const input = el("input", { type: "radio", name: nome, value: v, checked: atual === v });
+        input.addEventListener("change", () => aoMudar(v));
+        return el("label", {}, input, el("span", {}, t));
+      }));
+  }
+  function mostrarErro(caixa, msg) {
+    limparErro(caixa);
+    caixa.classList.add("invalido");
+    caixa.append(el("div", { class: "erro-campo", role: "alert" }, msg));
+  }
+  function limparErro(caixa) {
+    caixa.classList.remove("invalido");
+    caixa.querySelectorAll(".erro-campo").forEach((n) => n.remove());
+  }
+
+  // ---------- etapas ----------
+  function menorDeIdade() {
+    const i = idade(dataIso(dados.cadastro.data_nascimento_br));
+    return i !== null && i < 18;
+  }
+  function precisaResponsavel() { return dados.preenchido_por === "responsavel" || menorDeIdade(); }
+
+  function etapaInicio() {
+    const c = def.consultorio || {};
+    return {
+      titulo: "Início",
+      corpo: () => el("div", { class: "cartao" },
+        exemplo ? el("div", { class: "aviso-exemplo" }, "Esta é uma ficha de exemplo, para conhecer o formulário. Nada do que for preenchido aqui é enviado.") : null,
+        el("h1", {}, "Olá" + (def.primeiro_nome ? ", " + def.primeiro_nome : "") + "!"),
+        el("p", {}, "Esta é a sua ficha de paciente da " + (c.dentista || "Dra. Andressa Fiorenzano") + ". " +
+          "Preencher antes " + (def.consulta ? "da consulta de " + def.consulta : "da consulta") +
+          " deixa o atendimento mais rápido e mais seguro."),
+        el("p", {}, "São alguns dados de cadastro e perguntas sobre a sua saúde. Leva uns 5 a 8 minutos. " +
+          "Se a ficha for de uma criança ou de outra pessoa, você pode preencher como responsável."),
+        el("p", { class: "muted" }, "Suas respostas vão direto para a Dra. e ficam guardadas com sigilo, como no prontuário. " +
+          "Este link é pessoal" + (def.expira_em ? " e vale até " + def.expira_em : "") + "."),
+        avisoPrivacidade(false)),
+      validar: () => [],
+    };
+  }
+
+  function etapaDados() {
+    return {
+      titulo: "Seus dados",
+      corpo: () => {
+        const blocoResp = el("div", { id: "bloco-responsavel" },
+          el("h3", {}, "Responsável pelo paciente"),
+          el("p", { class: "muted" }, "Obrigatório para menores de 18 anos."),
+          campoTexto("responsavel.nome", "Nome completo do responsável", { obrigatorio: true, autocomplete: "name", capitalizar: "words" }),
+          el("div", { class: "linha" },
+            campoTexto("responsavel.cpf", "CPF do responsável", { obrigatorio: true, inputmode: "numeric", mascara: "cpf", placeholder: "000.000.000-00" }),
+            campoTexto("responsavel.parentesco", "Parentesco", { obrigatorio: true, placeholder: "Ex.: mãe" })),
+          campoTexto("responsavel.telefone", "Celular do responsável", { obrigatorio: true, tipo: "tel", inputmode: "tel", mascara: "tel", placeholder: "(11) 98765-4321" }));
+        const atualizarResp = () => { blocoResp.hidden = !precisaResponsavel(); };
+        const cartao = el("div", { class: "cartao" },
+          el("h2", {}, "Dados do paciente"),
+          el("div", { class: "campo", "data-campo": "preenchido_por" },
+            el("span", { class: "rotulo" }, "Quem está preenchendo?"),
+            escolhas("preenchido_por", [["paciente", "Eu sou o paciente"], ["responsavel", "Sou responsável pelo paciente"]],
+              dados.preenchido_por, (v) => { definir("preenchido_por", v); atualizarResp(); }, true)),
+          campoTexto("cadastro.nome", "Nome completo do paciente", { obrigatorio: true, autocomplete: "name", capitalizar: "words", max: 120 }),
+          campoTexto("cadastro.nome_social", "Nome social", { dica: "Se prefere ser chamado(a) por outro nome.", max: 120 }),
+          el("div", { class: "linha" },
+            campoTexto("cadastro.data_nascimento_br", "Data de nascimento", { obrigatorio: true, inputmode: "numeric", mascara: "data", placeholder: "DD/MM/AAAA", aoMudar: atualizarResp }),
+            campoSelect("cadastro.sexo", "Sexo", [["feminino", "Feminino"], ["masculino", "Masculino"], ["outro", "Outro"], ["nao_informado", "Prefiro não informar"]], { obrigatorio: true })),
+          el("div", { class: "linha" },
+            campoTexto("cadastro.cpf", "CPF", { inputmode: "numeric", mascara: "cpf", placeholder: "000.000.000-00", obrigatorio: true,
+              dica: "Vai no recibo para o Imposto de Renda." }),
+            campoTexto("cadastro.rg", "RG", { max: 20 })),
+          campoTexto("cadastro.telefone", "Celular", { obrigatorio: true, tipo: "tel", inputmode: "tel", autocomplete: "tel-national", mascara: "tel", placeholder: "(11) 98765-4321" }),
+          (() => {
+            const cb = el("input", { type: "checkbox", checked: dados.cadastro.whatsapp !== false });
+            cb.addEventListener("change", () => definir("cadastro.whatsapp", cb.checked));
+            return el("label", { class: "marcar" }, cb, el("span", {}, "Este número é WhatsApp"));
+          })(),
+          campoTexto("cadastro.email", "E-mail", { tipo: "email", inputmode: "email", autocomplete: "email", max: 120, capitalizar: "none" }),
+          el("div", { class: "linha" },
+            campoTexto("cadastro.profissao", "Profissão", { max: 80 }),
+            campoSelect("cadastro.estado_civil", "Estado civil", [["solteiro(a)", "Solteiro(a)"], ["casado(a)", "Casado(a)"], ["união estável", "União estável"], ["divorciado(a)", "Divorciado(a)"], ["viúvo(a)", "Viúvo(a)"]])),
+          blocoResp);
+        atualizarResp();
+        return cartao;
+      },
+      validar: () => {
+        const erros = [];
+        const c = dados.cadastro;
+        const nome = String(c.nome || "").trim().replace(/\s+/g, " ");
+        if (nome.length < 5 || !nome.includes(" ")) erros.push(["cadastro.nome", "Escreva o nome completo (nome e sobrenome)."]);
+        if (!dataIso(c.data_nascimento_br)) erros.push(["cadastro.data_nascimento_br", "Confira a data (DD/MM/AAAA)."]);
+        if (!c.sexo) erros.push(["cadastro.sexo", "Escolha uma opção."]);
+        const menor = menorDeIdade();
+        if (digitos(c.cpf) && !cpfValido(c.cpf)) erros.push(["cadastro.cpf", "Os números do CPF não conferem."]);
+        else if (!digitos(c.cpf) && !menor) erros.push(["cadastro.cpf", "Preencha o CPF."]);
+        const tel = digitos(c.telefone);
+        if (tel && (tel.length < 10 || tel.length > 11)) erros.push(["cadastro.telefone", "Escreva com DDD."]);
+        if (!tel && !precisaResponsavel()) erros.push(["cadastro.telefone", "Preencha um celular com DDD."]);
+        if (c.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(c.email).trim())) erros.push(["cadastro.email", "Confira o e-mail."]);
+        if (precisaResponsavel()) {
+          const r = dados.responsavel;
+          const rn = String(r.nome || "").trim();
+          if (rn.length < 5 || !rn.includes(" ")) erros.push(["responsavel.nome", "Escreva o nome completo do responsável."]);
+          if (!cpfValido(r.cpf)) erros.push(["responsavel.cpf", "Confira o CPF do responsável."]);
+          if (!String(r.parentesco || "").trim()) erros.push(["responsavel.parentesco", "Preencha o parentesco."]);
+          const rt = digitos(r.telefone);
+          if (rt.length < 10 || rt.length > 11) erros.push(["responsavel.telefone", "Escreva o celular com DDD."]);
+        }
+        return erros;
+      },
+    };
+  }
+
+  function etapaEndereco() {
+    return {
+      titulo: "Endereço",
+      corpo: () => el("div", { class: "cartao" },
+        el("h2", {}, "Endereço e contato"),
+        el("div", { class: "linha" },
+          campoTexto("cadastro.endereco.cep", "CEP", { obrigatorio: true, inputmode: "numeric", autocomplete: "postal-code", mascara: "cep", placeholder: "00000-000" }),
+          el("div")),
+        campoTexto("cadastro.endereco.logradouro", "Rua ou avenida", { obrigatorio: true, autocomplete: "address-line1", max: 150 }),
+        el("div", { class: "linha" },
+          campoTexto("cadastro.endereco.numero", "Número", { obrigatorio: true, inputmode: "numeric", max: 20 }),
+          campoTexto("cadastro.endereco.complemento", "Complemento", { autocomplete: "address-line2", max: 80 })),
+        campoTexto("cadastro.endereco.bairro", "Bairro", { obrigatorio: true, max: 80 }),
+        el("div", { class: "linha-3" },
+          campoTexto("cadastro.endereco.cidade", "Cidade", { obrigatorio: true, autocomplete: "address-level2", max: 80 }),
+          campoSelect("cadastro.endereco.uf", "UF", UFS.map((u) => [u, u]), { obrigatorio: true, vazio: "UF", autocomplete: "address-level1" })),
+        el("h3", {}, "Contato de emergência"),
+        el("p", { class: "muted" }, "Alguém para avisarmos se precisar."),
+        campoTexto("cadastro.contato_emergencia.nome", "Nome", { max: 120, capitalizar: "words" }),
+        el("div", { class: "linha" },
+          campoTexto("cadastro.contato_emergencia.parentesco", "Parentesco", { max: 40, placeholder: "Ex.: irmã" }),
+          campoTexto("cadastro.contato_emergencia.telefone", "Celular", { tipo: "tel", inputmode: "tel", mascara: "tel", placeholder: "(11) 98765-4321" })),
+        campoSelect("cadastro.origem", "Como conheceu a Dra.?", [["Indicação", "Indicação de amigo ou familiar"], ["Instagram", "Instagram"], ["Google", "Google"], ["Site", "Site"], ["Outro", "Outro"]])),
+      validar: () => {
+        const erros = [];
+        const e = dados.cadastro.endereco || {};
+        if (digitos(e.cep).length !== 8) erros.push(["cadastro.endereco.cep", "O CEP tem 8 números."]);
+        for (const [k, msg] of [["logradouro", "Preencha a rua."], ["numero", "Preencha o número (ou s/n)."], ["bairro", "Preencha o bairro."], ["cidade", "Preencha a cidade."], ["uf", "Escolha o estado."]]) {
+          if (!String(e[k] || "").trim()) erros.push(["cadastro.endereco." + k, msg]);
+        }
+        const t = digitos((dados.cadastro.contato_emergencia || {}).telefone);
+        if (t && (t.length < 10 || t.length > 11)) erros.push(["cadastro.contato_emergencia.telefone", "Escreva com DDD."]);
+        return erros;
+      },
+    };
+  }
+
+  const pulaPergunta = (p) => dados.cadastro.sexo === "masculino" && (def.so_feminino || []).includes(p.codigo);
+
+  function etapaGrupo(grupo, perguntas) {
+    return {
+      titulo: grupo,
+      corpo: () => el("div", { class: "cartao" },
+        el("h2", {}, grupo === "Queixa" ? "Motivo da consulta" : grupo),
+        grupo === "Queixa" ? null : el("p", { class: "muted" }, "Responda sim, não ou não sei. Se for sim, conte um pouco mais."),
+        perguntas.map((p) => {
+          const caminho = "anamnese." + p.codigo;
+          if (p.tipo === "texto") {
+            const atual = (dados.anamnese[p.codigo] || {}).resposta || "";
+            const id = "q-" + p.codigo;
+            const ta = el("textarea", { id, maxlength: 600 });
+            ta.value = atual;
+            const caixa = el("div", { class: "campo pergunta", "data-campo": caminho },
+              el("label", { for: id }, p.texto, p.codigo === "queixa_principal" ? null : el("span", { class: "opcional" }, " (opcional)")), ta);
+            ta.addEventListener("input", () => { definir(caminho, { resposta: ta.value }); limparErro(caixa); });
+            return caixa;
+          }
+          const atual = dados.anamnese[p.codigo] || {};
+          const det = el("input", { type: "text", maxlength: 300, placeholder: p.detalhe || "Conte um pouco mais", "aria-label": "Detalhe: " + p.texto });
+          det.value = atual.detalhe || "";
+          const caixaDet = el("div", { class: "detalhe" }, det);
+          caixaDet.hidden = atual.resposta !== "sim";
+          det.addEventListener("input", () => {
+            const a = dados.anamnese[p.codigo] || {};
+            definir(caminho, { resposta: a.resposta, detalhe: det.value });
+          });
+          const caixa = el("div", { class: "campo pergunta", "data-campo": caminho, "data-codigo": p.codigo },
+            el("span", { class: "rotulo" }, p.texto),
+            escolhas("q-" + p.codigo, [["sim", "Sim"], ["nao", "Não"], ["nao_sabe", "Não sei"]], atual.resposta, (v) => {
+              const a = dados.anamnese[p.codigo] || {};
+              definir(caminho, { resposta: v, detalhe: a.detalhe });
+              caixaDet.hidden = v !== "sim";
+              limparErro(caixa);
+              if (v === "sim") det.focus({ preventScroll: true });
+            }),
+            caixaDet);
+          return caixa;
+        })),
+      aoMostrar: (raiz) => {
+        raiz.querySelectorAll("[data-codigo]").forEach((n) => {
+          n.hidden = pulaPergunta({ codigo: n.getAttribute("data-codigo") });
+        });
+      },
+      validar: () => {
+        const erros = [];
+        for (const p of perguntas) {
+          if (pulaPergunta(p)) continue;
+          const a = dados.anamnese[p.codigo] || {};
+          if (p.tipo === "sim_nao" && !["sim", "nao", "nao_sabe"].includes(a.resposta)) erros.push(["anamnese." + p.codigo, "Responda esta pergunta."]);
+          if (p.tipo === "texto" && p.codigo === "queixa_principal" && !String(a.resposta || "").trim()) {
+            erros.push(["anamnese." + p.codigo, 'Conte o motivo (pode ser "revisão" ou "avaliação").']);
+          }
+        }
+        return erros;
+      },
+    };
+  }
+
+  function avisoPrivacidade(aberto) {
+    const c = def.consultorio || {};
+    const contato = [c.whatsapp ? "WhatsApp " + mascara(c.whatsapp, "tel") : null, c.email].filter(Boolean).join(" ou ");
+    return el("details", { open: aberto },
+      el("summary", {}, "Como seus dados são tratados"),
+      el("ul", {},
+        el("li", {}, "Quem cuida dos seus dados: " + (c.dentista || "Dra. Andressa Fiorenzano") + (c.cro ? ", " + c.cro : "") + (c.endereco ? ", " + c.endereco : "") + "."),
+        el("li", {}, "Para quê: montar o seu prontuário odontológico e atender você com segurança (por exemplo, alergias e remédios que mudam o tratamento), emitir recibos e cumprir obrigações legais."),
+        el("li", {}, "Base legal: tutela da saúde, cumprimento de obrigação legal e o seu consentimento (Lei Geral de Proteção de Dados, arts. 7º e 11)."),
+        el("li", {}, "Quem vê: só a Dra. e quem a ajuda no seu atendimento. Os dados ficam em servidor seguro no Brasil e não são vendidos nem compartilhados, a não ser quando a lei exige (por exemplo, o recibo de saúde para a Receita Federal)."),
+        el("li", {}, "Por quanto tempo: o prontuário é guardado por pelo menos 20 anos depois do último atendimento, como manda a lei (Lei 13.787/2018)."),
+        el("li", {}, "Seus direitos: você pode pedir acesso, correção ou informações sobre seus dados" + (contato ? " pelo " + contato : "") + "."),
+        el("li", {}, "Este link é pessoal. Depois de enviada, a ficha não pode ser vista por este link.")));
+  }
+
+  function etapaFinal() {
+    return {
+      titulo: "Enviar",
+      corpo: () => {
+        const listaResumo = el("div", { id: "resumo" });
+        const consent = (chave, texto) => {
+          const cb = el("input", { type: "checkbox", checked: dados.consentimentos[chave] === true });
+          cb.addEventListener("change", () => { dados.consentimentos[chave] = cb.checked; salvar(); limparErro(caixa); });
+          const caixa = el("div", { class: "campo", "data-campo": "consentimentos." + chave }, el("label", { class: "marcar" }, cb, el("span", {}, texto)));
+          return caixa;
+        };
+        return el("div", { class: "cartao" },
+          el("h2", {}, "Confira e envie"),
+          listaResumo,
+          campoTexto("observacoes", "Algo mais que a Dra. deva saber?", { multilinha: true, max: 2000 }),
+          avisoPrivacidade(false),
+          consent("veracidade", "Declaro que as informações são verdadeiras e que aviso a Dra. se algo mudar na minha saúde."),
+          consent("privacidade", "Li como meus dados são tratados e concordo."),
+          el("div", { id: "erro-envio" }));
+      },
+      aoMostrar: (raiz) => {
+        const r = raiz.querySelector("#resumo");
+        r.replaceChildren();
+        const c = dados.cadastro;
+        const sims = def.perguntas.filter((p) => p.tipo === "sim_nao" && !pulaPergunta(p) && (dados.anamnese[p.codigo] || {}).resposta === "sim");
+        const cpf = digitos(c.cpf);
+        r.append(el("dl", { class: "resumo" },
+          el("dt", {}, "Paciente"), el("dd", {}, String(c.nome || "").trim()),
+          el("dt", {}, "Nascimento"), el("dd", {}, c.data_nascimento_br || ""),
+          cpf ? [el("dt", {}, "CPF"), el("dd", {}, "***." + cpf.slice(3, 6) + "." + cpf.slice(6, 9) + "-**")] : null,
+          precisaResponsavel() ? [el("dt", {}, "Responsável"), el("dd", {}, String(dados.responsavel.nome || "").trim())] : null,
+          el("dt", {}, "Você respondeu sim para"),
+          el("dd", {}, sims.length ? el("ul", { class: "lista-sim" }, sims.map((p) => el("li", {}, p.texto, (dados.anamnese[p.codigo] || {}).detalhe ? " — " + dados.anamnese[p.codigo].detalhe : ""))) : "Nenhuma pergunta.")),
+          el("p", { class: "muted" }, "Para corrigir algo, use Voltar."));
+      },
+      validar: () => {
+        const erros = [];
+        if (!dados.consentimentos.veracidade) erros.push(["consentimentos.veracidade", "Marque para enviar."]);
+        if (!dados.consentimentos.privacidade) erros.push(["consentimentos.privacidade", "Marque para enviar."]);
+        return erros;
+      },
+    };
+  }
+
+  // ---------- navegação ----------
+  let raizes = [];
+  function montarPassos() {
+    const grupos = [];
+    for (const p of def.perguntas) {
+      let g = grupos.find((x) => x.grupo === p.grupo);
+      if (!g) grupos.push(g = { grupo: p.grupo, perguntas: [] });
+      g.perguntas.push(p);
+    }
+    passos = [etapaInicio(), etapaDados(), etapaEndereco(), ...grupos.map((g) => etapaGrupo(g.grupo, g.perguntas)), etapaFinal()];
+    app.replaceChildren();
+    const prog = el("div", { class: "progresso" },
+      el("div", { class: "texto" }, el("span", { id: "prog-texto" }), el("span", { id: "prog-titulo" })),
+      el("div", { class: "barra" }, el("i", { id: "prog-barra" })));
+    app.append(prog);
+    raizes = passos.map((p) => {
+      const raiz = el("section", { hidden: true }, p.corpo());
+      app.append(raiz);
+      return raiz;
+    });
+    passo = Math.min(Math.max(0, Number(dados.passo) || 0), passos.length - 1);
+    mostrar();
+    nav.hidden = false;
+  }
+  function mostrar() {
+    raizes.forEach((r, i) => { r.hidden = i !== passo; });
+    const p = passos[passo];
+    if (p.aoMostrar) p.aoMostrar(raizes[passo]);
+    document.getElementById("prog-texto").textContent = "Etapa " + (passo + 1) + " de " + passos.length;
+    document.getElementById("prog-titulo").textContent = p.titulo;
+    document.getElementById("prog-barra").style.width = Math.round(((passo + 1) / passos.length) * 100) + "%";
+    btVoltar.hidden = passo === 0;
+    btAvancar.textContent = passo === 0 ? "Começar" : passo === passos.length - 1 ? (exemplo ? "Enviar (exemplo)" : "Enviar ficha") : "Continuar";
+    salvar();
+    window.scrollTo({ top: 0 });
+  }
+  function validarPasso(i) {
+    const erros = Array.isArray(passos[i].validar()) ? passos[i].validar() : [];
+    const raiz = raizes[i];
+    raiz.querySelectorAll(".campo").forEach(limparErro);
+    for (const [caminho, msg] of erros) {
+      const caixa = raiz.querySelector('[data-campo="' + caminho + '"]');
+      if (caixa) mostrarErro(caixa, msg);
+    }
+    if (erros.length) {
+      const primeiro = raiz.querySelector(".invalido");
+      if (primeiro) {
+        primeiro.scrollIntoView({ behavior: "smooth", block: "center" });
+        const foco = primeiro.querySelector("input:not([type=radio]), select, textarea");
+        if (foco) setTimeout(() => foco.focus({ preventScroll: true }), 300);
+      }
+      return false;
+    }
+    return true;
+  }
+  btVoltar.addEventListener("click", () => { if (passo > 0) { passo--; mostrar(); } });
+  btAvancar.addEventListener("click", async () => {
+    if (enviando) return;
+    if (!validarPasso(passo)) return;
+    if (passo < passos.length - 1) { passo++; mostrar(); return; }
+    await enviar();
+  });
+
+  function montarEnvio() {
+    const c = dados.cadastro;
+    const anam = {};
+    for (const p of def.perguntas) {
+      if (pulaPergunta(p)) continue;
+      const a = dados.anamnese[p.codigo];
+      if (!a) continue;
+      anam[p.codigo] = p.tipo === "texto" ? { resposta: String(a.resposta || "").trim() } :
+        { resposta: a.resposta, detalhe: a.resposta === "sim" ? String(a.detalhe || "").trim() : undefined };
+    }
+    const resp = precisaResponsavel() ? {
+      nome: String(dados.responsavel.nome || "").trim(), cpf: digitos(dados.responsavel.cpf),
+      parentesco: String(dados.responsavel.parentesco || "").trim(), telefone: digitos(dados.responsavel.telefone),
+    } : null;
+    return {
+      termo_versao: TERMO,
+      preenchido_por: dados.preenchido_por,
+      consentimentos: { privacidade: dados.consentimentos.privacidade === true, veracidade: dados.consentimentos.veracidade === true },
+      cadastro: {
+        nome: String(c.nome || "").trim().replace(/\s+/g, " "),
+        nome_social: String(c.nome_social || "").trim() || undefined,
+        data_nascimento: dataIso(c.data_nascimento_br),
+        sexo: c.sexo || undefined,
+        cpf: digitos(c.cpf) || undefined,
+        rg: String(c.rg || "").trim() || undefined,
+        telefone: digitos(c.telefone) || undefined,
+        whatsapp: c.whatsapp !== false,
+        email: String(c.email || "").trim() || undefined,
+        profissao: String(c.profissao || "").trim() || undefined,
+        estado_civil: c.estado_civil || undefined,
+        endereco: {
+          cep: digitos((c.endereco || {}).cep) || undefined,
+          logradouro: String((c.endereco || {}).logradouro || "").trim() || undefined,
+          numero: String((c.endereco || {}).numero || "").trim() || undefined,
+          complemento: String((c.endereco || {}).complemento || "").trim() || undefined,
+          bairro: String((c.endereco || {}).bairro || "").trim() || undefined,
+          cidade: String((c.endereco || {}).cidade || "").trim() || undefined,
+          uf: (c.endereco || {}).uf || undefined,
+        },
+        contato_emergencia: {
+          nome: String((c.contato_emergencia || {}).nome || "").trim() || undefined,
+          parentesco: String((c.contato_emergencia || {}).parentesco || "").trim() || undefined,
+          telefone: digitos((c.contato_emergencia || {}).telefone) || undefined,
+        },
+        origem: c.origem || undefined,
+      },
+      responsavel: resp,
+      anamnese: anam,
+      observacoes: String(dados.observacoes || "").trim() || undefined,
+    };
+  }
+
+  async function enviar() {
+    const caixaErro = raizes[passos.length - 1].querySelector("#erro-envio");
+    caixaErro.replaceChildren();
+    if (exemplo) {
+      caixaErro.append(el("div", { class: "aviso-exemplo", role: "status" }, "Tudo certo! Como esta é uma ficha de exemplo, nada foi enviado."));
+      return;
+    }
+    enviando = true;
+    btAvancar.disabled = true;
+    btAvancar.textContent = "Enviando…";
+    try {
+      const r = await chamar({ acao: "enviar", codigo, respostas: montarEnvio() });
+      guardar.apagar(CHAVE);
+      guardar.apagar(CHAVE_CODIGO);
+      telaFinal("Ficha enviada!", (r && r.mensagem) || "Pronto! Sua ficha foi enviada. Obrigada!", true);
+    } catch (e) {
+      caixaErro.append(el("div", { class: "alerta", role: "alert" }, e.message));
+      caixaErro.scrollIntoView({ behavior: "smooth", block: "center" });
+      btAvancar.disabled = false;
+      btAvancar.textContent = "Enviar ficha";
+    } finally {
+      enviando = false;
+    }
+  }
+
+  function telaFinal(titulo, mensagem, ok, whatsapp) {
+    nav.hidden = true;
+    app.replaceChildren(el("div", { class: "cartao ok" },
+      ok ? el("div", { class: "selo", "aria-hidden": "true" }, "✓") : null,
+      el("h1", {}, titulo),
+      el("p", {}, mensagem),
+      whatsapp ? el("p", {}, el("a", { class: "botao-link", href: "https://wa.me/55" + digitos(whatsapp), rel: "noopener" }, "Falar com a Dra. no WhatsApp")) : null,
+      ok ? el("p", { class: "muted" }, "Pode fechar esta página.") : null));
+    window.scrollTo({ top: 0 });
+  }
+
+  async function iniciar() {
+    if (!codigo && !exemplo) {
+      telaFinal("Ficha do paciente", "Abra esta página pelo link que você recebeu da Dra. pelo WhatsApp. O link é pessoal.", false);
+      return;
+    }
+    try {
+      def = await chamar(exemplo ? { acao: "exemplo" } : { acao: "abrir", codigo });
+    } catch (e) {
+      app.replaceChildren(el("div", { class: "cartao" },
+        el("h1", {}, "Não deu para abrir a ficha"),
+        el("p", {}, e.message),
+        el("p", {}, el("button", { type: "button", class: "secundario", onclick: () => location.reload() }, "Tentar de novo"))));
+      return;
+    }
+    if (def.status === "enviada") {
+      guardar.apagar(CHAVE);
+      return telaFinal("Ficha já enviada", def.mensagem, true, def.whatsapp);
+    }
+    if (def.status === "expirada") {
+      guardar.apagar(CHAVE);
+      return telaFinal("Link expirado", def.mensagem, false, def.whatsapp);
+    }
+    if (def.primeiro_nome) document.getElementById("topo-sub").textContent = "Ficha de " + def.primeiro_nome;
+    montarPassos();
+  }
+  iniciar();
+})();
+</script>
+</body>
+</html>
