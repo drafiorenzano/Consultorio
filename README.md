@@ -105,7 +105,7 @@ supabase/
     deno.json        dependências
   functions/painel/  API só de leitura do app do iPad
 app/                 app do iPad (PWA estática)
-scripts/             gerador do SQL dos catálogos
+scripts/             gerador do SQL dos catálogos; pacote/ monta e carrega o conector publicado
 tests/               testes do servidor MCP e dos catálogos (sem banco)
 docs/                instruções do Project e roteiro de teste no iPhone
 ```
@@ -130,6 +130,24 @@ Pela API/MCP do Supabase, mande `import_map_path: "deno.json"` junto com todos
 os arquivos da pasta (menos `deno.lock`): sem isso o deploy reaproveita o
 caminho da versão anterior e falha. `supabase functions deploy painel
 --no-verify-jwt` publica a API do iPad.
+
+**Como está publicado hoje.** O servidor completo ficou grande demais para um
+envio só pela API, e o publicador do Supabase não importa código de
+`*.supabase.co`. Por isso a função `mcp` no ar é o carregador
+`scripts/pacote/carregador.js`: na partida ele lê o pacote montado (deno
+bundle) da tabela `pacote_conector`, confere o SHA-256 fixado no carregador e
+roda. Para publicar uma versão nova assim:
+
+```bash
+scripts/pacote/montar.sh /tmp/pacote   # gera pacote.sql e index.js
+# 1. rode pacote.sql no SQL editor (entra a versão nova, a antiga continua)
+# 2. publique /tmp/pacote/index.js + supabase/functions/mcp/deno.json como "mcp"
+# 3. apague da tabela as partes da versão antiga
+```
+
+Com o Supabase CLI (`supabase functions deploy mcp --no-verify-jwt`) a função
+volta a ser publicada direto de `supabase/functions/mcp/` e a tabela
+`pacote_conector` pode ser apagada.
 
 Criar um acesso para o conector (o token nunca vai para o repositório):
 
