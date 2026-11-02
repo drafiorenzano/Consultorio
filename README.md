@@ -3,9 +3,11 @@
 Sistema do consultório odontológico da Dra. Andressa, operado por voz: ela fala
 com o Claude no celular e o Claude grava na base por um conector próprio (MCP).
 
-Este repositório está na **etapa 1 (base completa e prontuário)**: pacientes,
-anamnese, odontograma, prontuário e catálogo de procedimentos com os preços
-dela, no Supabase, e um servidor MCP com oito ferramentas. Só dados fictícios
+Tem tudo o que o consultório precisa no dia a dia: pacientes, anamnese,
+odontograma e prontuário; agenda com o aluguel da sala; orçamento, receita,
+atestado e termos em PDF; estoque com baixa automática por procedimento;
+financeiro com recibos do Receita Saúde e pacote do contador. São 29
+ferramentas no conector MCP e um app do iPad só de leitura. Só dados fictícios
 de pacientes; os dados do consultório e os preços são os reais.
 
 ## Como funciona
@@ -52,6 +54,31 @@ Claude (Project "Consultório")  ──►  conector MCP (Edge Function "mcp")
 | `listar_procedimentos` | Catálogo com código, preço e grupo. Sem preço, mostra só a faixa de mercado como referência. |
 | `salvar_procedimento` | Altera preço, nome, sinônimos, ativo, ou inclui procedimento novo. Avisa mudança de preço acima de 50%. |
 
+Os módulos estão documentados à parte: agenda e iPad (abaixo),
+[documentos](docs/documentos.md), [estoque](docs/estoque.md) e
+[financeiro](docs/financeiro.md).
+
+| Módulo | Ferramentas |
+|---|---|
+| Agenda | `agendar_consulta`, `alterar_consulta` (confirmar, remarcar, cancelar, faltou, reabrir), `reservar_sala` (aluguel por hora, vira despesa), `ver_agenda` (horários livres, links de WhatsApp para confirmar, retornos sem consulta) |
+| Documentos | `montar_orcamento` (a partir do plano no odontograma, com alternativas e fases), `alterar_orcamento`, `emitir_receita`, `emitir_atestado`, `emitir_termo`, `ver_documentos` |
+| Estoque | `registrar_compra` (vira despesa), `movimentar_estoque`, `ver_estoque`, `salvar_material` |
+| Financeiro | `registrar_pagamento`, `registrar_despesa`, `ver_financeiro`, `marcar_recibos`, `configurar_financeiro`, `gerar_pacote_contador` |
+| iPad | `acesso_ipad` (gera, lista e revoga o link do app) |
+
+### App do iPad
+
+`app/` é um site estático (HTML, CSS e JS, sem build) instalável como app
+(PWA): hoje, agenda da semana, pacientes, ficha completa com odontograma,
+orçamentos, documentos e financeiro do paciente, estoque e financeiro do mês.
+Só leitura. Ele lê a Edge Function `painel`, que aceita um código próprio no
+cabeçalho `x-acesso` (escopo `painel` em `acessos_mcp`; o código do conector
+não abre o painel e vice-versa) e devolve `public.painel(acao, parametros)`.
+PDFs ganham link temporário (1 h). Cores e fontes ficam em `app/tema.css`.
+O workflow `.github/workflows/app-ipad.yml` publica a pasta no GitHub Pages
+(Settings > Pages > Source: GitHub Actions); o endereço vai em
+`configuracao.painel_url` e o link de acesso sai pela ferramenta `acesso_ipad`.
+
 Catálogos de condições do odontograma e perguntas da anamnese ficam em JSON
 (`supabase/functions/mcp/catalogos/`) e alimentam tanto as descrições das
 ferramentas quanto as tabelas do banco. Depois de mudar um JSON:
@@ -69,10 +96,15 @@ supabase/
   migrations/        esquema, funções e permissões (aplicadas em ordem)
   seed.sql           pacientes fictícios para teste
   functions/mcp/     Edge Function do servidor MCP
-    index.ts         entrada (chave secreta, chamada ao PostgREST)
-    servidor.ts      ferramentas MCP e HTTP (sem dependência de Deno/Supabase)
+    index.ts         entrada (chave secreta, chamada ao PostgREST, Storage)
+    servidor.ts      ferramentas do prontuário e HTTP (sem dependência de Deno/Supabase)
+    ferramentas/     módulos: agenda, documentos, estoque, financeiro, ipad
+    documentos/      PDFs (pdf-lib)
+    financeiro/      planilhas e lote do Receita Saúde
     catalogos/       condições do odontograma e perguntas da anamnese (JSON)
     deno.json        dependências
+  functions/painel/  API só de leitura do app do iPad
+app/                 app do iPad (PWA estática)
 scripts/             gerador do SQL dos catálogos
 tests/               testes do servidor MCP e dos catálogos (sem banco)
 docs/                instruções do Project e roteiro de teste no iPhone
@@ -94,9 +126,10 @@ supabase db push
 supabase functions deploy mcp --no-verify-jwt
 ```
 
-Pela API/MCP do Supabase, mande `import_map_path: "deno.json"` junto com os
-arquivos (index.ts, servidor.ts, deno.json e os dois JSON de `catalogos/`):
-sem isso o deploy reaproveita o caminho da versão anterior e falha.
+Pela API/MCP do Supabase, mande `import_map_path: "deno.json"` junto com todos
+os arquivos da pasta (menos `deno.lock`): sem isso o deploy reaproveita o
+caminho da versão anterior e falha. `supabase functions deploy painel
+--no-verify-jwt` publica a API do iPad.
 
 Criar um acesso para o conector (o token nunca vai para o repositório):
 
@@ -112,7 +145,7 @@ Revogar: `update acessos_mcp set revogado_em = now() where id = '...';`
 
 ## Próximas etapas
 
-Ver o plano completo no projeto: ~~1) base completa e prontuário~~ (feito),
-2) agenda e app do iPad, 3) PDFs (orçamento a partir do plano no odontograma,
-receita, TCLE), 4) estoque e financeiro, 5) entrega nas contas dela (inclui
-login OAuth no lugar do token na URL e unificar os preços com o site).
+~~1) base e prontuário~~, ~~2) agenda e app do iPad~~, ~~3) PDFs~~,
+~~4) estoque e financeiro~~ (feitos). Falta 5) entrega: limpar os dados de
+demonstração, login OAuth no lugar do token na URL, unificar os preços com o
+site e ajustar os padrões com as respostas da Dra.
