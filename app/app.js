@@ -84,6 +84,7 @@ const cpf = (c) => {
   const d = String(c ?? "").replace(/\D/g, "");
   return d.length === 11 ? `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}` : c ?? "";
 };
+const normalizar = (t) => String(t ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 const linkWhatsApp = (t) => {
   const d = String(t ?? "").replace(/\D/g, "");
   return d ? `https://wa.me/${d.length <= 11 ? "55" + d : d}` : null;
@@ -400,13 +401,26 @@ function blocoRetornos(retornos) {
   }</ul></section>`;
 }
 
-// Blocos que os módulos acrescentam ao início (estoque baixo, financeiro do mês…).
+// Blocos que os módulos acrescentam ao início (orçamentos, estoque, financeiro).
+const valorOrcamento = (o) =>
+  o.valor != null ? dinheiro(o.valor) : (o.opcoes ?? []).map((x) => `Opção ${x.alternativa}: ${dinheiro(x.total)}`).join(" · ");
+
 function blocosDeModulos(d) {
   const blocos = [];
+  if (d.orcamentos_acompanhar?.length) {
+    blocos.push(html`<section class="cartao"><h2>Orçamentos para acompanhar</h2><ul class="lista">${
+      d.orcamentos_acompanhar.map((o) =>
+        html`<li><div class="linha"><div><a class="link-paciente" href="#/paciente/${o.paciente_id}/orcamentos">${o.paciente}</a>
+        <div class="suave pequeno">${[o.titulo, valorOrcamento(o)].filter(Boolean).join(" · ")}</div></div>
+        <span class="etiqueta ${o.em_atraso ? "etiqueta-alerta" : "etiqueta-aviso"}">contato ${dataCurta(o.proximo_contato)}</span></div>
+        ${o.telefone ? html`<div class="pequeno"><a href="${linkWhatsApp(o.telefone)}" target="_blank" rel="noopener">${telefone(o.telefone)}</a></div>` : ""}</li>`
+      )
+    }</ul><p class="suave pequeno" style="margin:10px 0 0">Depois de falar com o paciente, conte ao Claude (“liguei pra fulana sobre o orçamento”).</p></section>`);
+  }
   if (d.estoque_alertas?.length) {
-    blocos.push(html`<section class="cartao"><h2>Estoque</h2><ul class="lista">${
+    blocos.push(html`<section class="cartao"><h2>Estoque acabando</h2><ul class="lista">${
       d.estoque_alertas.map((i) =>
-        html`<li><div class="linha"><span class="forte">${i.nome}</span><span class="etiqueta ${i.zerado ? "etiqueta-alerta" : "etiqueta-aviso"}">${i.quantidade ?? 0} ${i.unidade ?? ""}</span></div>${
+        html`<li><div class="linha"><span class="forte">${i.nome}</span><span class="etiqueta ${i.zerado ? "etiqueta-alerta" : "etiqueta-aviso"}">${i.quantidade ?? "0"}</span></div>${
           i.mensagem ? html`<div class="suave pequeno">${i.mensagem}</div>` : ""
         }</li>`
       )
@@ -416,7 +430,7 @@ function blocosDeModulos(d) {
     const f = d.financeiro_mes;
     blocos.push(html`<section class="cartao"><h2>Financeiro do mês</h2><dl class="dados">
       ${f.recebido != null ? html`<div><dt>Recebido</dt><dd class="forte">${dinheiro(f.recebido)}</dd></div>` : ""}
-      ${f.a_receber != null ? html`<div><dt>A receber</dt><dd>${dinheiro(f.a_receber)}</dd></div>` : ""}
+      ${f.a_receber ? html`<div><dt>Ainda a receber no mês</dt><dd>${dinheiro(f.a_receber)}</dd></div>` : ""}
       ${f.despesas != null ? html`<div><dt>Despesas</dt><dd>${dinheiro(f.despesas)}</dd></div>` : ""}
       ${f.resultado != null ? html`<div><dt>Resultado</dt><dd class="forte">${dinheiro(f.resultado)}</dd></div>` : ""}
     </dl><div class="botoes" style="margin-top:10px"><a class="botao" href="#/financeiro">Ver financeiro</a></div></section>`);
@@ -907,67 +921,188 @@ function listaGenerica(itens, vazio) {
   if (!itens?.length) return html`<p class="vazio">${vazio}</p>`;
   return html`<ul class="lista">${
     itens.map((x) =>
-      html`<li><div class="linha"><div><span class="forte">${x.titulo ?? x.descricao ?? x.tipo ?? "Item"}</span>
-      <div class="suave pequeno">${[x.data ? dataCurta(x.data, true) : "", x.numero ? `nº ${x.numero}` : "", x.forma ?? ""].filter(Boolean).join(" · ")}</div></div>
-      <div class="botoes">${x.status ? html`<span class="etiqueta">${String(x.status).replaceAll("_", " ")}</span>` : ""}${
-        x.valor != null || x.valor_total != null ? html`<span class="forte">${dinheiro(x.valor ?? x.valor_total)}</span>` : ""
+      html`<li><div class="linha"><div>${
+        x.paciente_id ? html`<a class="link-paciente" href="#/paciente/${x.paciente_id}">${x.titulo}</a>` : html`<span class="forte">${x.titulo ?? x.descricao ?? x.tipo ?? "Item"}</span>`
+      }
+      <div class="suave pequeno">${[x.data ? dataCurta(x.data, true) : "", x.numero ? `nº ${x.numero}` : "", x.forma ?? "", x.paciente_id ? x.descricao ?? "" : ""].filter(Boolean).join(" · ")}</div></div>
+      <div class="botoes">${x.status ? html`<span class="etiqueta ${/estorn|cancel|atrasad/.test(x.status) ? "etiqueta-alerta" : ""}">${String(x.status).replaceAll("_", " ")}</span>` : ""}${
+        x.valor != null ? html`<span class="forte">${dinheiro(x.valor)}</span>` : ""
       }${x.link ? html`<a class="botao" href="${x.link}" target="_blank" rel="noopener">Abrir PDF</a>` : ""}</div></div></li>`
     )
   }</ul>`;
 }
-const abaOrcamentos = (p) => html`<section class="cartao">${listaGenerica(p.orcamentos, "Nenhum orçamento.")}</section>`;
-const abaDocumentos = (p) => html`<section class="cartao">${listaGenerica(p.documentos, "Nenhum documento emitido.")}</section>`;
+
+const COR_ORCAMENTO = { aprovado: "etiqueta-ok", concluido: "etiqueta-ok", parcial: "etiqueta-ok", apresentado: "etiqueta-aviso", rascunho: "etiqueta-apagada", recusado: "etiqueta-alerta", expirado: "etiqueta-alerta" };
+const STATUS_ITEM = { realizado: "feito", em_andamento: "em andamento", cancelado: "cancelado" };
+
+function abaOrcamentos(p) {
+  if (!p.orcamentos?.length) {
+    return html`<section class="cartao"><p class="vazio">Nenhum orçamento. Peça ao Claude: “monta um orçamento pra ${p.apelido ?? p.nome.split(" ")[0]} com o que está planejado no odontograma”.</p></section>`;
+  }
+  return p.orcamentos.map((o) =>
+    html`<section class="cartao"><div class="linha"><div><h2 style="margin:0">${o.titulo}</h2>
+      <div class="suave pequeno">${[
+        o.data ? `emitido ${dataCurta(o.data, true)}` : "",
+        o.validade && ["apresentado", "rascunho"].includes(o.situacao) ? `válido até ${dataCurta(o.validade, true)}` : "",
+        o.aprovado_em ? `aprovado ${dataCurta(o.aprovado_em, true)}` : "",
+        o.forma ?? "",
+      ].filter(Boolean).join(" · ")}</div></div>
+      <div class="botoes"><span class="etiqueta ${COR_ORCAMENTO[o.situacao] ?? ""}">${o.status}</span>${
+        o.link ? html`<a class="botao" href="${o.link}" target="_blank" rel="noopener">Abrir PDF</a>` : ""
+      }</div></div>
+      <ul class="lista" style="margin-top:10px">${
+        (o.itens ?? []).map((i) =>
+          html`<li><div class="linha"><div${i.conta === false ? cru(' style="opacity:.55"') : ""}>${i.descricao}${i.alternativa ? html` <span class="etiqueta etiqueta-info">opção ${i.alternativa}</span>` : ""}
+          ${i.local ? html`<div class="suave pequeno">${i.local}</div>` : ""}</div>
+          <div class="botoes">${STATUS_ITEM[i.status] ? html`<span class="etiqueta ${i.status === "realizado" ? "etiqueta-ok" : ""}">${STATUS_ITEM[i.status]}</span>` : ""}<span>${i.valor != null ? dinheiro(i.valor) : ""}</span></div></div></li>`
+        )
+      }</ul>
+      <div class="linha" style="margin-top:10px"><span class="suave">Total</span><span class="forte">${valorOrcamento(o)}</span></div>
+      ${o.proximo_contato ? html`<p class="pequeno ${o.contato_em_atraso ? "texto-alerta" : "suave"}" style="margin:8px 0 0">Próximo contato: ${dataCurta(o.proximo_contato, true)}</p>` : ""}
+    </section>`
+  );
+}
+
+const TIPO_DOCUMENTO = { orcamento: "Orçamento", receita: "Receita", atestado: "Atestado", termo: "Termo", consentimento: "Termo de consentimento", orientacoes: "Orientações" };
+const abaDocumentos = (p) =>
+  html`<section class="cartao">${
+    listaGenerica((p.documentos ?? []).map((d) => ({ ...d, forma: TIPO_DOCUMENTO[d.tipo] ?? d.tipo })), "Nenhum documento emitido. Receitas, atestados e termos pedidos ao Claude aparecem aqui.")
+  }</section>`;
+
 function abaFinanceiro(p) {
   const f = p.financeiro ?? {};
+  const parcelas = (f.parcelas_em_aberto ?? []).map((x) => ({
+    titulo: x.descricao ?? "Parcela",
+    numero: x.parcela,
+    data: x.vencimento,
+    valor: x.restante,
+    status: x.situacao,
+  }));
   return html`<section class="cartao"><dl class="dados">
-      ${campo("Total orçado", f.total_orcado != null ? dinheiro(f.total_orcado) : null)}
-      ${campo("Recebido", f.recebido != null ? dinheiro(f.recebido) : null)}
-      ${campo("Saldo devedor", f.saldo != null ? dinheiro(f.saldo) : null)}
+      ${campo("Total aprovado", f.total_orcado != null ? dinheiro(f.total_orcado) : null)}
+      ${campo("Recebido", dinheiro(f.recebido ?? 0))}
+      ${campo("A receber", dinheiro(f.saldo ?? f.a_receber ?? 0))}
+      ${f.atrasado ? campo("Atrasado", dinheiro(f.atrasado)) : ""}
+      ${campo("Último pagamento", f.ultimo_pagamento ? dataCurta(f.ultimo_pagamento, true) : null)}
     </dl></section>
+    ${parcelas.length ? html`<section class="cartao"><h2>Parcelas em aberto</h2>${listaGenerica(parcelas, "")}</section>` : ""}
     <section class="cartao"><h2>Pagamentos</h2>${listaGenerica(f.recebimentos, "Nenhum pagamento registrado.")}</section>`;
 }
 
 // ------------------------------------------------------------------
-// Estoque e financeiro (preenchidos pelos módulos)
+// Estoque
 // ------------------------------------------------------------------
 async function telaEstoque() {
   const d = await api("estoque");
   if (!d) return emBreve("Estoque", "Aqui aparecem os materiais, o que está acabando e as últimas compras.");
   return telaEstoqueCompleta(d);
 }
-async function telaFinanceiro() {
-  const d = await api("financeiro", {});
-  if (!d) return emBreve("Financeiro", "Aqui aparecem os recebimentos, as despesas e o resumo do mês.");
-  return telaFinanceiroCompleta(d);
-}
 const emBreve = (titulo, texto) => html`<div class="cabecalho"><div><h1>${titulo}</h1></div></div><section class="cartao"><p class="vazio">${texto}</p></section>`;
+
+const SITUACAO_ESTOQUE = {
+  ok: ["etiqueta-ok", "ok"],
+  baixo: ["etiqueta-aviso", "baixo"],
+  zerado: ["etiqueta-alerta", "acabou"],
+  sem_contagem: ["etiqueta-apagada", "sem contagem"],
+};
 
 function telaEstoqueCompleta(d) {
   const itens = d.itens ?? [];
-  return html`<div class="cabecalho"><div><h1>Estoque</h1><p>${itens.length} materiais</p></div></div>
-    <section class="cartao"><table class="tabela"><thead><tr><th>Material</th><th>Quantidade</th><th class="col-opcional">Mínimo</th><th class="col-opcional">Último preço</th></tr></thead><tbody>${
-    itens.map((i) =>
-      html`<tr><td class="forte">${i.nome}${i.categoria ? html`<div class="suave pequeno">${i.categoria}</div>` : ""}</td>
-      <td><span class="etiqueta ${i.zerado ? "etiqueta-alerta" : i.baixo ? "etiqueta-aviso" : "etiqueta-ok"}">${i.quantidade ?? 0} ${i.unidade ?? ""}</span></td>
-      <td class="col-opcional">${i.minimo ?? ""}</td><td class="col-opcional">${i.ultimo_preco != null ? dinheiro(i.ultimo_preco) : ""}</td></tr>`
-    )
-  }</tbody></table></section>`;
+  const r = d.resumo ?? {};
+  const compras = d.lista_de_compras ?? [];
+  depoisDeMostrar.push(() => {
+    const campoBusca = document.getElementById("busca-estoque");
+    campoBusca?.addEventListener("input", () => {
+      const q = normalizar(campoBusca.value);
+      document.querySelectorAll("#tabela-estoque tbody tr").forEach((tr) => {
+        tr.hidden = q !== "" && !tr.dataset.busca.includes(q);
+      });
+    });
+  });
+  return html`<div class="cabecalho"><div><h1>Estoque</h1><p>${r.materiais ?? itens.length} materiais · ${r.com_contagem ?? 0} com contagem</p></div></div>
+    ${d.sem_contagem ? html`<section class="cartao aviso-faixa"><strong>Falta a contagem inicial.</strong> Conte a prateleira aos poucos e diga ao Claude, por exemplo: “tenho 2 caixas de luva M e 1 caixa de articaína”. A partir daí, cada atendimento dá baixa sozinho.</section>` : ""}
+    <div class="numeros">
+      <div class="numero"><b>${dinheiro(r.valor_em_estoque ?? 0)}</b><span>em estoque</span></div>
+      <div class="numero"><b>${compras.length}</b><span>para comprar</span></div>
+      ${r.total_estimado ? html`<div class="numero"><b>${dinheiro(r.total_estimado)}</b><span>compra estimada</span></div>` : ""}
+      <div class="numero"><b>${(d.vencendo ?? []).length}</b><span>lotes vencendo (60 dias)</span></div>
+    </div>
+    <div class="grade grade-2">
+      <section class="cartao"><div class="linha"><h2 style="margin:0">Materiais</h2>
+        <input id="busca-estoque" class="busca busca-pequena" type="search" placeholder="Buscar material" autocomplete="off"></div>
+        <table class="tabela" id="tabela-estoque"><thead><tr><th>Material</th><th>Tem</th><th class="col-opcional">Mínimo</th></tr></thead><tbody>${
+        itens.map((i) => {
+          const [cor, rotulo] = SITUACAO_ESTOQUE[i.situacao] ?? ["", i.situacao ?? ""];
+          return html`<tr data-busca="${normalizar(`${i.nome} ${i.categoria ?? ""}`)}"><td><span class="forte">${i.nome}</span>${
+            i.categoria ? html`<div class="suave pequeno">${i.categoria}${i.ultimo_preco != null ? ` · ${dinheiro(i.ultimo_preco)} por ${i.unidade_compra ?? "unidade"}` : ""}${i.vence_primeiro ? ` · vence ${dataCurta(i.vence_primeiro, true)}` : ""}</div>` : ""
+          }</td>
+          <td>${i.quantidade ? html`<div>${i.quantidade}</div>` : ""}<span class="etiqueta ${cor}">${rotulo}</span></td>
+          <td class="col-opcional suave">${i.minimo ?? ""}</td></tr>`;
+        })
+      }</tbody></table></section>
+      <div>
+        <section class="cartao"><h2>Lista de compras</h2>${
+          compras.length
+            ? html`<ul class="lista">${
+              compras.map((c) =>
+                html`<li><div class="linha"><div><span class="forte">${c.material}</span>
+                <div class="suave pequeno">${[c.saldo ? `tem ${c.saldo}` : "", c.ultimo_fornecedor ?? "", c.motivo ?? ""].filter(Boolean).join(" · ")}</div></div>
+                <div class="botoes"><span class="etiqueta etiqueta-aviso">${c.comprar}</span>${c.valor_estimado ? html`<span>${dinheiro(c.valor_estimado)}</span>` : ""}</div></div></li>`
+              )
+            }</ul>`
+            : html`<p class="vazio">Nada para comprar agora.</p>`
+        }</section>
+        ${d.vencendo?.length ? html`<section class="cartao"><h2>Vencendo</h2><ul class="lista">${
+          d.vencendo.map((v) =>
+            html`<li><div class="linha"><div><span class="forte">${v.nome}</span><div class="suave pequeno">${v.lote ? `lote ${v.lote} · ` : ""}${v.quantidade}</div></div>
+            <span class="etiqueta ${v.validade <= hojeISO() ? "etiqueta-alerta" : "etiqueta-aviso"}">${dataCurta(v.validade, true)}</span></div></li>`
+          )
+        }</ul></section>` : ""}
+        <section class="cartao"><h2>Últimas compras</h2>${listaGenerica(d.ultimas_compras, "Nenhuma compra registrada. Diga ao Claude o que comprou, de quem e por quanto.")}</section>
+      </div>
+    </div>`;
+}
+
+// ------------------------------------------------------------------
+// Financeiro
+// ------------------------------------------------------------------
+async function telaFinanceiro(mes) {
+  const d = await api("financeiro", mes ? { mes } : {});
+  if (!d) return emBreve("Financeiro", "Aqui aparecem os recebimentos, as despesas e o resumo do mês.");
+  return telaFinanceiroCompleta(d);
 }
 
 function telaFinanceiroCompleta(d) {
   const r = d.resumo ?? {};
-  return html`<div class="cabecalho"><div><h1>Financeiro</h1><p>${d.periodo ?? ""}</p></div></div>
+  const pequenaLista = (itens) =>
+    itens?.length
+      ? html`<dl class="dados">${itens.map((x) => html`<div><dt>${x.titulo}</dt><dd>${dinheiro(x.valor)}</dd></div>`)}</dl>`
+      : html`<p class="vazio">Nada no mês.</p>`;
+  return html`<div class="cabecalho"><div><h1>Financeiro</h1><p>${d.periodo ?? ""}</p></div>
+      <div class="botoes"><a class="botao" href="#/financeiro/${d.anterior}" aria-label="Mês anterior">‹ ${mesCurto(d.anterior)}</a><a class="botao" href="#/financeiro/${d.proximo}" aria-label="Próximo mês">${mesCurto(d.proximo)} ›</a></div></div>
     <div class="numeros">
-      ${r.recebido != null ? html`<div class="numero"><b>${dinheiro(r.recebido)}</b><span>recebido</span></div>` : ""}
-      ${r.a_receber != null ? html`<div class="numero"><b>${dinheiro(r.a_receber)}</b><span>a receber</span></div>` : ""}
-      ${r.despesas != null ? html`<div class="numero"><b>${dinheiro(r.despesas)}</b><span>despesas</span></div>` : ""}
-      ${r.resultado != null ? html`<div class="numero"><b>${dinheiro(r.resultado)}</b><span>resultado</span></div>` : ""}
+      <div class="numero"><b>${dinheiro(r.recebido ?? 0)}</b><span>recebido${r.taxas ? ` (${dinheiro(r.liquido)} líquido)` : ""}</span></div>
+      <div class="numero"><b>${dinheiro(r.despesas ?? 0)}</b><span>despesas</span></div>
+      <div class="numero"><b>${dinheiro(r.resultado ?? 0)}</b><span>resultado</span></div>
+      <div class="numero"><b>${dinheiro(r.a_receber ?? 0)}</b><span>a receber${r.atrasado ? `, ${dinheiro(r.atrasado)} atrasado` : ""}</span></div>
     </div>
+    ${d.avisos?.length ? html`<section class="cartao aviso-faixa"><ul>${d.avisos.map((a) => html`<li>${a}</li>`)}</ul></section>` : ""}
     <div class="grade grade-2">
-      <section class="cartao"><h2>Recebimentos</h2>${listaGenerica(d.recebimentos, "Nenhum recebimento no período.")}</section>
-      <section class="cartao"><h2>Despesas</h2>${listaGenerica(d.despesas, "Nenhuma despesa no período.")}</section>
+      <div>
+        <section class="cartao"><h2>Recebimentos</h2>${listaGenerica(d.recebimentos, "Nenhum recebimento no mês.")}</section>
+        <section class="cartao"><h2>Despesas</h2>${listaGenerica(d.despesas, "Nenhuma despesa no mês.")}</section>
+      </div>
+      <div>
+        ${d.parcelas_a_receber?.length ? html`<section class="cartao"><h2>Parcelas a receber</h2>${listaGenerica(d.parcelas_a_receber, "")}</section>` : ""}
+        <section class="cartao"><h2>Por forma de pagamento</h2>${pequenaLista(d.por_forma)}</section>
+        <section class="cartao"><h2>Despesas por categoria</h2>${pequenaLista(d.por_categoria)}</section>
+      </div>
     </div>`;
 }
+const mesCurto = (aaaamm) => {
+  const [a, m] = String(aaaamm ?? "").split("-").map(Number);
+  return m ? `${MESES[m - 1].slice(0, 3)}${a !== new Date().getFullYear() ? ` ${a}` : ""}` : "";
+};
 
 // ------------------------------------------------------------------
 if ("serviceWorker" in navigator && location.protocol === "https:") {

@@ -156,6 +156,7 @@ button { font: inherit; color: inherit; }
 
 /* ---------- pacientes ---------- */
 .busca { width: 100%; max-width: 520px; min-height: 46px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--cor-linha); background: var(--cor-superficie); font: inherit; color: inherit; }
+.busca-pequena { max-width: 220px; min-height: 38px; padding: 6px 12px; }
 .busca:focus { outline: 2px solid var(--cor-marca); outline-offset: 1px; }
 .tabela { width: 100%; border-collapse: collapse; }
 .tabela th { text-align: left; font-weight: 500; font-size: 13px; color: var(--cor-texto-suave); padding: 8px 10px; border-bottom: 1px solid var(--cor-linha); }
@@ -207,3 +208,14 @@ button { font: inherit; color: inherit; }
 .entrada .nav-monograma { margin: 0 auto 14px; width: 64px; height: 64px; font-size: 22px; color: var(--cor-marca); border-color: var(--cor-areia); }
 body.sem-acesso .nav { display: none; }
 body.sem-acesso .app { grid-template-columns: 1fr; }
+
+/* módulos */
+.aviso-faixa { background: var(--cor-aviso-suave); border-color: transparent; color: var(--cor-texto); margin-bottom: 16px; }
+.aviso-faixa ul { margin: 0; padding-left: 18px; }
+.aviso-faixa strong { color: var(--cor-aviso); }
+.texto-alerta { color: var(--cor-alerta); }
+#tabela-estoque td:nth-child(2) { white-space: nowrap; }
+@media (max-width: 700px) {
+  .busca-pequena { max-width: 150px; }
+  #tabela-estoque td:nth-child(2) { white-space: normal; }
+}
