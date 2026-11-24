@@ -9,8 +9,10 @@ atestado e termos em PDF; estoque com baixa automática por procedimento;
 financeiro com recibos do Receita Saúde e pacote do contador; preços de
 campanha e calculadora de preço; agenda no app Calendário do iPhone/iPad e
 ficha online que o paciente preenche antes da consulta. São 36 ferramentas no
-conector MCP e um app do iPad só de leitura. Desde 02/11/2026 a base tem dados
-reais de pacientes: testes só em transação desfeita (rollback).
+conector MCP e um site (celular, iPad e computador) que mostra tudo e também
+lança recebimentos, despesas, estoque e estornos, com login de e-mail, senha e
+código de dois fatores. Desde 02/11/2026 a base tem dados reais de pacientes:
+testes só em transação desfeita (rollback).
 
 ## Como funciona
 
@@ -56,7 +58,7 @@ Claude (Project "Consultório")  ──►  conector MCP (Edge Function "mcp")
 | `listar_procedimentos` | Catálogo com código, preço e grupo. Sem preço, mostra só a faixa de mercado como referência. |
 | `salvar_procedimento` | Altera preço, nome, sinônimos, ativo, ou inclui procedimento novo. Avisa mudança de preço acima de 50%. |
 
-Os módulos estão documentados à parte: agenda e iPad (abaixo),
+Os módulos estão documentados à parte: agenda e site (abaixo),
 [documentos](docs/documentos.md), [estoque](docs/estoque.md) e
 [financeiro](docs/financeiro.md).
 
@@ -66,23 +68,49 @@ Os módulos estão documentados à parte: agenda e iPad (abaixo),
 | Documentos | `montar_orcamento` (a partir do plano no odontograma, com alternativas e fases), `alterar_orcamento`, `emitir_receita`, `emitir_atestado`, `emitir_termo`, `ver_documentos` |
 | Estoque | `registrar_compra` (vira despesa), `movimentar_estoque`, `ver_estoque`, `salvar_material` |
 | Financeiro | `registrar_pagamento`, `registrar_despesa`, `ver_financeiro`, `marcar_recibos`, `configurar_financeiro`, `gerar_pacote_contador` |
-| iPad | `acesso_ipad` (gera, lista e revoga o link do app) |
+| Site | `acesso_ipad` (gera o convite do site, lista os aparelhos e tira o acesso; o nome ficou da época do app do iPad) |
 | Preços | `salvar_campanha` (preços só de uma campanha, ex.: Campanha RJ; os normais não mudam), `ver_campanhas`, `calcular_preco` (lucro no Pix, débito e crédito 1x a 12x, com imposto e custos do kit) |
 | Calendário | `acesso_calendario` (gera, lista e revoga o link de assinatura da agenda no app Calendário) |
 | Ficha online | `ficha_online` (link pessoal com mensagem pronta para o WhatsApp; lista e cancela), `ver_ficha_online` (o que o paciente respondeu ao lado da ficha), `confirmar_ficha_online` (grava ou descarta, com campos a ignorar) |
 
-### App do iPad
+### Site do consultório
 
 `app/` é um site estático (HTML, CSS e JS, sem build) instalável como app
-(PWA): hoje, agenda da semana, pacientes, ficha completa com odontograma,
-orçamentos, documentos e financeiro do paciente, estoque e financeiro do mês.
-Só leitura. Ele lê a Edge Function `painel`, que aceita um código próprio no
-cabeçalho `x-acesso` (escopo `painel` em `acessos_mcp`; o código do conector
-não abre o painel e vice-versa) e devolve `public.painel(acao, parametros)`.
-PDFs ganham link temporário (1 h). Cores e fontes ficam em `app/tema.css`.
-O workflow `.github/workflows/app-ipad.yml` publica a pasta no GitHub Pages
-(Settings > Pages > Source: GitHub Actions); o endereço vai em
-`configuracao.painel_url` e o link de acesso sai pela ferramenta `acesso_ipad`.
+(PWA) que funciona no celular, no iPad e no computador: hoje, agenda (semana e
+mês), pacientes com ficha completa e odontograma, orçamentos, documentos,
+estoque, financeiro com gráfico de 12 meses, preços e campanhas, atividade
+(tudo o que foi registrado, pelo Claude ou pelo site) e ajustes. Tema claro,
+escuro ou automático; cores e fontes em `app/tema.css`, fontes em `app/fontes/`
+(sem Google Fonts).
+
+**Login.** Conta do Supabase Auth com e-mail, senha e código TOTP (app Senhas
+do iPhone). A conta só nasce, ou troca de senha, pelo convite que o Claude gera
+com `acesso_ipad` (link `#acesso=...`, uma vez só, 7 dias; o hash fica em
+`acessos_mcp` com escopo `painel`). O convite também apaga o código antigo, e o
+código novo só vale se for cadastrado até 24 h depois de usar o convite. Cada
+pedido passa por `painel_autorizar`: sessão com segundo fator (aal2), aberta
+depois da última troca de senha, com até 30 dias, e cada acesso fica em
+`painel_log`.
+
+**API.** A Edge Function `painel` (sem JWT do gateway: ela mesma confere o
+token) devolve `public.painel(acao, parametros)` e, na ação `gravar`, chama
+`painel_gravar`, que usa as mesmas funções do conector
+(`mcp_registrar_pagamento`, `mcp_registrar_despesa`,
+`mcp_movimentar_estoque`) com as mesmas validações. A solicitação fica marcada
+como vinda do site (`solicitacoes.cliente = 'site'`) e aparece em Atividade
+como "pelo site". Só os campos listados em `painel_campos` passam. Estornos
+são registros novos, nada se apaga. `LANCAR_PELO_SITE` em `app/config.js`
+desliga os botões de lançar sem mexer no banco.
+
+**Segurança no navegador.** CSP na página (só scripts do próprio site e
+conexão só com o Supabase do consultório), sem referrer, `noindex`. A chave em
+`app/config.js` é a publicável (pública por definição); RLS sem políticas
+continua bloqueando tudo fora das funções.
+
+**Publicar.** O workflow `.github/workflows/app-ipad.yml` publica a pasta no
+GitHub Pages (Settings > Pages > Source: GitHub Actions); o endereço vai em
+`configuracao.painel_url`. Ao mudar arquivos do site, suba `VERSAO` em
+`app/sw.js` e inclua os arquivos novos em `CASCA`.
 
 ### Agenda no Calendário do iPhone/iPad
 
@@ -137,10 +165,10 @@ supabase/
     financeiro/      planilhas e lote do Receita Saúde
     catalogos/       condições do odontograma e perguntas da anamnese (JSON)
     deno.json        dependências
-  functions/painel/  API só de leitura do app do iPad
+  functions/painel/  API do site (leituras, lançamentos e convite)
   functions/calendario/  agenda em iCal para o app Calendário
   functions/ficha/   API pública da ficha online (abrir e enviar)
-app/                 app do iPad (PWA estática)
+app/                 site do consultório (PWA estática, sem build)
 app/ficha/           página da ficha online que o paciente abre
 scripts/             gerador do SQL dos catálogos; pacote/ monta e carrega o conector publicado
 tests/               testes do servidor MCP e dos catálogos (sem banco)
@@ -166,7 +194,7 @@ supabase functions deploy mcp --no-verify-jwt
 Pela API/MCP do Supabase, mande `import_map_path: "deno.json"` junto com todos
 os arquivos da pasta (menos `deno.lock`): sem isso o deploy reaproveita o
 caminho da versão anterior e falha. `supabase functions deploy painel
---no-verify-jwt` publica a API do iPad; `calendario` e `ficha` vão do mesmo
+--no-verify-jwt` publica a API do site; `calendario` e `ficha` vão do mesmo
 jeito (as duas sem JWT: a primeira confere o código da URL, a segunda o código
 da ficha).
 
@@ -203,7 +231,8 @@ Revogar: `update acessos_mcp set revogado_em = now() where id = '...';`
 ## Próximas etapas
 
 ~~1) base e prontuário~~, ~~2) agenda e app do iPad~~, ~~3) PDFs~~,
-~~4) estoque e financeiro~~, ~~calendário e ficha online~~ (feitos). Os dados
+~~4) estoque e financeiro~~, ~~calendário e ficha online~~, ~~site completo
+com login e lançamentos~~ (feitos). Os dados
 de demonstração foram apagados em 02/11/2026. Falta: login OAuth no lugar do
 token na URL, unificar os preços com o site e ajustar os padrões com as
 respostas da Dra.

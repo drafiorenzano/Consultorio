@@ -1,18 +1,51 @@
-// API só de leitura do app do iPad. Sem dependências do Deno nem do
-// Supabase, para testar localmente (tests/painel_test.ts).
+// API do site do consultório: leituras e os lançamentos do site. Sem dependências
+// do Deno nem do Supabase, para testar localmente (tests/painel_test.ts).
 //
-// POST {acao, parametros} com o código de acesso no cabeçalho x-acesso.
-// As leituras moram em public.painel(acao, parametros) no Postgres.
+// POST {acao, parametros}.
+// - Leituras: "Authorization: Bearer <token>" da conta dela no Supabase Auth,
+//   com o segundo fator (aal2). Cada leitura passa por painel_autorizar, que
+//   confere a sessão (até 30 dias, aberta depois da última senha) e registra
+//   o acesso em painel_log. Os dados vêm de public.painel(acao, parametros).
+// - Lançamentos: acao "gravar" com {tipo, dados}. Mesmo login; painel_gravar
+//   confere a sessão e chama a mesma função do conector (pagamento, despesa,
+//   estornos e estoque), com a solicitação marcada como vinda do site.
+// - Convite: "x-acesso: <código>" do link que o Claude gera (acesso_ipad).
+//   "convite" diz para qual e-mail ele vale; "criar_conta" gasta o convite e
+//   cria a conta (ou troca a senha e apaga o segundo fator antigo).
+
+export interface ContasAuth {
+  /** Usuário dono do token, ou null se o token não vale mais. */
+  usuario: (token: string) => Promise<{ id: string } | null>;
+  /** Cria a conta já confirmada e devolve o id. */
+  criarUsuario: (email: string, senha: string) => Promise<string>;
+  trocarSenha: (usuarioId: string, senha: string) => Promise<void>;
+  fatores: (usuarioId: string) => Promise<{ id: string }[]>;
+  apagarFator: (usuarioId: string, fatorId: string) => Promise<void>;
+}
 
 export interface DependenciasPainel {
   rpc: (funcao: string, argumentos: Record<string, unknown>) => Promise<unknown>;
-  /** Diz se o SHA-256 (hex) do código é um acesso válido do escopo painel. */
-  acessoValido: (sha256: string) => Promise<boolean>;
-  /** Link temporário para um arquivo do Storage (documentos em PDF). */
-  assinar?: (caminho: string, segundos: number) => Promise<string>;
+  auth: ContasAuth;
+  /** Links temporários para arquivos do Storage (PDFs), num pedido só: caminho -> link. */
+  assinar?: (caminhos: string[], segundos: number) => Promise<Record<string, string>>;
 }
 
-export const ACOES = new Set(["inicio", "agenda", "pacientes", "paciente", "estoque", "financeiro", "documentos"]);
+export const ACOES = new Set([
+  "inicio",
+  "agenda",
+  "pacientes",
+  "paciente",
+  "orcamentos",
+  "documentos",
+  "estoque",
+  "financeiro",
+  "precos",
+  "atividade",
+  "configuracoes",
+]);
+const ACOES_CONVITE = new Set(["convite", "criar_conta"]);
+export const LANCAMENTOS = new Set(["pagamento", "estornar_pagamento", "despesa", "estornar_despesa", "estoque"]);
+const LIMITE_LINKS = 400;
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -33,26 +66,97 @@ function json(corpo: unknown, status = 200): Response {
   });
 }
 
-/** Troca cada {"arquivo": "caminho"} por um link temporário em "link". */
-async function assinarArquivos(valor: unknown, deps: DependenciasPainel, limite = { n: 100 }): Promise<unknown> {
-  if (Array.isArray(valor)) {
-    const saida = [];
-    for (const v of valor) saida.push(await assinarArquivos(v, deps, limite));
-    return saida;
+/** Lê as declarações do token (já conferido pelo Auth em deps.auth.usuario). */
+export function declaracoesDoToken(token: string): Record<string, unknown> {
+  try {
+    const parte = token.split(".")[1] ?? "";
+    const base64 = parte.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(parte.length / 4) * 4, "=");
+    const texto = new TextDecoder().decode(Uint8Array.from(atob(base64), (c) => c.charCodeAt(0)));
+    const dados = JSON.parse(texto);
+    return dados && typeof dados === "object" ? dados : {};
+  } catch (_) {
+    return {};
   }
-  if (valor && typeof valor === "object") {
-    const obj: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(valor)) obj[k] = await assinarArquivos(v, deps, limite);
-    if (typeof obj.arquivo === "string" && deps.assinar && limite.n-- > 0) {
-      try {
-        obj.link = await deps.assinar(obj.arquivo, 3600);
-      } catch (_) {
-        // sem link, o app mostra o documento sem botão de abrir
-      }
+}
+
+/** Senha do site: de 10 a 72 caracteres, sem ser uma repetição óbvia. */
+export function problemaNaSenha(senha: unknown): string | null {
+  if (typeof senha !== "string") return "Escolha uma senha.";
+  if (senha.length < 10) return "A senha precisa ter pelo menos 10 caracteres.";
+  if (new TextEncoder().encode(senha).length > 72) return "A senha pode ter no máximo 72 caracteres.";
+  if (new Set(senha).size < 4) return "Essa senha é fácil demais de adivinhar. Misture letras e números.";
+  if (/^(0123456789|1234567890|abcdefghij|qwertyuiop)/i.test(senha)) return "Essa senha é fácil demais de adivinhar.";
+  return null;
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Troca cada {"arquivo": "caminho"} por um link temporário em "link" (um pedido só ao Storage). */
+async function assinarArquivos(valor: unknown, deps: DependenciasPainel): Promise<unknown> {
+  if (!deps.assinar) return valor;
+  const caminhos = new Set<string>();
+  const coletar = (v: unknown) => {
+    if (Array.isArray(v)) v.forEach(coletar);
+    else if (v && typeof v === "object") {
+      const o = v as Record<string, unknown>;
+      if (typeof o.arquivo === "string" && caminhos.size < LIMITE_LINKS) caminhos.add(o.arquivo);
+      Object.values(o).forEach(coletar);
     }
-    return obj;
+  };
+  coletar(valor);
+  if (!caminhos.size) return valor;
+  let links: Record<string, string> = {};
+  try {
+    links = await deps.assinar([...caminhos], 3600);
+  } catch (_) {
+    return valor; // sem link, o site mostra o documento sem o botão de abrir
   }
-  return valor;
+  const trocar = (v: unknown): unknown => {
+    if (Array.isArray(v)) return v.map(trocar);
+    if (v && typeof v === "object") {
+      const o: Record<string, unknown> = {};
+      for (const [k, x] of Object.entries(v)) o[k] = trocar(x);
+      if (typeof o.arquivo === "string" && links[o.arquivo]) o.link = links[o.arquivo];
+      return o;
+    }
+    return v;
+  };
+  return trocar(valor);
+}
+
+async function convite(acao: string, codigo: string, parametros: Record<string, unknown>, deps: DependenciasPainel) {
+  const usado = "Este link já foi usado ou venceu. Peça um novo ao Claude: “me manda o link do site”.";
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(codigo)) return json({ erro: usado }, 401);
+  const hash = await sha256Hex(codigo);
+
+  if (acao === "convite") {
+    const info = await deps.rpc("painel_convite", { p_token_sha256: hash }) as Record<string, unknown> | null;
+    if (!info) return json({ erro: usado }, 401);
+    return json({ dados: { email: info.email ?? null, conta_existe: info.conta_existe === true } });
+  }
+
+  const problema = problemaNaSenha(parametros.senha);
+  if (problema) return json({ erro: problema }, 400);
+  const senha = parametros.senha as string;
+
+  const info = await deps.rpc("painel_convite_usar", { p_token_sha256: hash }) as Record<string, unknown> | null;
+  if (!info) return json({ erro: usado }, 401);
+  const email = typeof info.email === "string" ? info.email : "";
+  if (!email) return json({ erro: "Falta o e-mail do consultório no cadastro. Peça ao Claude para incluir." }, 400);
+
+  let id = typeof info.usuario_id === "string" ? info.usuario_id : "";
+  if (!id) {
+    const existente = await deps.rpc("painel_usuario_por_email", { p_email: email });
+    if (typeof existente === "string") id = existente;
+  }
+  if (id) {
+    await deps.auth.trocarSenha(id, senha);
+    for (const f of await deps.auth.fatores(id)) await deps.auth.apagarFator(id, f.id);
+  } else {
+    id = await deps.auth.criarUsuario(email, senha);
+  }
+  await deps.rpc("painel_conta_registrar", { p_usuario: id, p_email: email });
+  return json({ dados: { email } });
 }
 
 export function criarHandlerPainel(deps: DependenciasPainel) {
@@ -60,26 +164,63 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
     if (req.method !== "POST") return json({ erro: "Use POST." }, 405);
 
-    const codigo = req.headers.get("x-acesso") ?? "";
-    if (!/^[A-Za-z0-9_-]{32,128}$/.test(codigo) || !(await deps.acessoValido(await sha256Hex(codigo)))) {
-      return json({ erro: "Código de acesso inválido ou revogado." }, 401);
-    }
-
     let pedido: { acao?: unknown; parametros?: unknown };
     try {
       pedido = await req.json();
     } catch (_) {
       return json({ erro: "Pedido inválido." }, 400);
     }
-    const acao = typeof pedido.acao === "string" ? pedido.acao : "";
-    if (!ACOES.has(acao)) return json({ erro: "Ação desconhecida." }, 400);
-    const parametros = pedido.parametros && typeof pedido.parametros === "object" ? pedido.parametros : {};
+    const acao = typeof pedido?.acao === "string" ? pedido.acao : "";
+    const parametros =
+      (pedido?.parametros && typeof pedido.parametros === "object" && !Array.isArray(pedido.parametros)
+        ? pedido.parametros
+        : {}) as Record<string, unknown>;
 
     try {
+      if (ACOES_CONVITE.has(acao)) return await convite(acao, req.headers.get("x-acesso") ?? "", parametros, deps);
+      const gravar = acao === "gravar";
+      if (!ACOES.has(acao) && !gravar) return json({ erro: "Ação desconhecida." }, 400);
+      const tipo = typeof parametros.tipo === "string" ? parametros.tipo : "";
+      const lancamento = parametros.dados && typeof parametros.dados === "object" && !Array.isArray(parametros.dados)
+        ? parametros.dados
+        : null;
+      if (gravar && (!LANCAMENTOS.has(tipo) || !lancamento)) return json({ erro: "Lançamento desconhecido." }, 400);
+
+      const token = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+      const sair = { erro: "Sua sessão terminou. Entre de novo com e-mail, senha e código.", sessao: "expirada" };
+      if (!token || token.split(".").length !== 3) return json(sair, 401);
+      const usuario = await deps.auth.usuario(token);
+      if (!usuario) return json(sair, 401);
+      const d = declaracoesDoToken(token);
+      if (d.aal !== "aal2") return json({ erro: "Falta o código de dois fatores.", precisa_codigo: true }, 403);
+      const sessao = typeof d.session_id === "string" ? d.session_id : null;
+
+      if (gravar) {
+        const r = await deps.rpc("painel_gravar", {
+          p_usuario: usuario.id,
+          p_sessao: sessao,
+          p_acao: tipo,
+          p_dados: lancamento,
+        });
+        if ((r as { status?: string } | null)?.status === "sessao_expirada") return json(sair, 401);
+        return json({ dados: r });
+      }
+      const paciente = acao === "paciente" && typeof parametros.id === "string" && UUID.test(parametros.id)
+        ? parametros.id
+        : null;
+      const autorizado = await deps.rpc("painel_autorizar", {
+        p_usuario: usuario.id,
+        p_sessao: sessao,
+        p_acao: acao,
+        p_paciente: paciente,
+      });
+      if (autorizado !== true) return json(sair, 401);
+
       const dados = await deps.rpc("painel", { p_acao: acao, p_params: parametros });
       if (dados === null) return json({ erro: "Ação ainda não disponível." }, 404);
       return json({ dados: await assinarArquivos(dados, deps) });
     } catch (e) {
+      console.error(`painel ${acao}: ${e instanceof Error ? e.message : String(e)}`);
       return json({ erro: e instanceof Error ? e.message : String(e) }, 400);
     }
   };

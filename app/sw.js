@@ -1,7 +1,26 @@
 // Guarda só a "casca" do app (HTML, CSS, JS, ícones) para abrir rápido.
 // Os dados dos pacientes nunca são guardados aqui: vêm sempre da API.
-const VERSAO = "consultorio-v1";
-const CASCA = ["./", "index.html", "tema.css", "estilo.css", "app.js", "config.js", "condicoes.js", "icone.svg", "manifest.webmanifest"];
+const VERSAO = "consultorio-v2";
+const CASCA = [
+  "./",
+  "index.html",
+  "tema.js",
+  "tema.css",
+  "estilo.css",
+  "fontes/fontes.css",
+  "app.js",
+  "auth.js",
+  "base.js",
+  "condicoes.js",
+  "config.js",
+  "entrada.js",
+  "grafico.js",
+  "lancar.js",
+  "nucleo.js",
+  "telas.js",
+  "icone.svg",
+  "manifest.webmanifest",
+];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(CASCA)).then(() => self.skipWaiting()));

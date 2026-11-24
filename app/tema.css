@@ -2,6 +2,9 @@
  * Tema do app. Para trocar a identidade visual (logo e cores novas da
  * designer), basta mudar estas variáveis e as fontes no index.html.
  * Base atual: site andressafiorenzano.com.br.
+ *
+ * Claro ou escuro: tema.js põe data-tema="claro" ou "escuro" no <html>
+ * (automático segue o aparelho; a escolha fica em Ajustes).
  */
 :root {
   --cor-marca: #2c4a3e;        /* verde-floresta */
@@ -30,6 +33,11 @@
   --dente-planejado: #d08a00;
   --dente-ausente: #8a8f8c;
 
+  /* gráficos (par conferido para daltonismo e contraste) */
+  --grafico-entrada: #13774a;
+  --grafico-saida: #bd8428;
+  --grafico-apagado: #d9cfbd;
+
   --fonte-titulo: "Tenor Sans", Georgia, serif;
   --fonte-texto: "Outfit", -apple-system, "Segoe UI", sans-serif;
   --raio: 14px;
@@ -37,32 +45,34 @@
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-tema="claro"]) {
-    --cor-marca: #a9c8b9;
-    --cor-marca-suave: #24332c;
-    --cor-fundo: #151a17;
-    --cor-areia: #6f644f;
-    --cor-areia-suave: #2a2720;
-    --cor-superficie: #1d2420;
-    --cor-texto: #e9ece9;
-    --cor-texto-suave: #a4aca7;
-    --cor-linha: #323b36;
-    --cor-alerta: #f08a80;
-    --cor-alerta-suave: #3c2220;
-    --cor-aviso: #e6bd5c;
-    --cor-aviso-suave: #3a301a;
-    --cor-ok: #86c99e;
-    --cor-ok-suave: #1f3427;
-    --cor-info: #8fbde3;
-    --cor-info-suave: #1d2c39;
-    --cor-whatsapp: #23985a;
-    --dente-achado: #ee7b6f;
-    --dente-trabalho: #78aee0;
-    --dente-feito: #74c995;
-    --dente-planejado: #f0b546;
-    --dente-ausente: #7d8580;
-    --sombra: 0 1px 2px rgb(0 0 0 / 30%);
-    color-scheme: dark;
-  }
+:root[data-tema="escuro"] {
+  --cor-marca: #a9c8b9;
+  --cor-marca-suave: #24332c;
+  --cor-fundo: #151a17;
+  --cor-areia: #6f644f;
+  --cor-areia-suave: #2a2720;
+  --cor-superficie: #1d2420;
+  --cor-texto: #e9ece9;
+  --cor-texto-suave: #a4aca7;
+  --cor-linha: #323b36;
+  --cor-alerta: #f08a80;
+  --cor-alerta-suave: #3c2220;
+  --cor-aviso: #e6bd5c;
+  --cor-aviso-suave: #3a301a;
+  --cor-ok: #86c99e;
+  --cor-ok-suave: #1f3427;
+  --cor-info: #8fbde3;
+  --cor-info-suave: #1d2c39;
+  --cor-whatsapp: #23985a;
+  --dente-achado: #ee7b6f;
+  --dente-trabalho: #78aee0;
+  --dente-feito: #74c995;
+  --dente-planejado: #f0b546;
+  --dente-ausente: #7d8580;
+  --grafico-entrada: #137d4b;
+  --grafico-saida: #c08628;
+  --grafico-apagado: #4a4436;
+  --sombra: 0 1px 2px rgb(0 0 0 / 30%);
+  color-scheme: dark;
+
 }

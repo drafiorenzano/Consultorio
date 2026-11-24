@@ -3,10 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src https://wyubbsqurhqrztpexkdc.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta name="robots" content="noindex, nofollow">
   <meta name="referrer" content="no-referrer">
   <title>Consultório</title>
-  <meta name="description" content="Agenda e fichas do consultório da Dra. Andressa Fiorenzano (só leitura).">
+  <meta name="description" content="Agenda, pacientes e financeiro do consultório da Dra. Andressa Fiorenzano.">
   <meta name="theme-color" content="#2C4A3E">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
@@ -15,9 +16,8 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icone.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icone-180.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&family=Tenor+Sans&display=swap" rel="stylesheet">
+  <script src="tema.js"></script>
+  <link rel="stylesheet" href="fontes/fontes.css">
   <link rel="stylesheet" href="tema.css">
   <link rel="stylesheet" href="estilo.css">
 </head>
@@ -31,9 +31,27 @@
       <a href="#/hoje" data-secao="hoje"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span>Hoje</span></a>
       <a href="#/agenda" data-secao="agenda"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Agenda</span></a>
       <a href="#/pacientes" data-secao="pacientes"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/></svg><span>Pacientes</span></a>
-      <a href="#/estoque" data-secao="estoque"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg><span>Estoque</span></a>
+      <a href="#/orcamentos" data-secao="orcamentos" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10A.5.5 0 0 1 7 20z"/><path d="M14 3.5V8h4M10 12h5M10 15.5h5"/></svg><span>Orçamentos</span></a>
+      <a href="#/documentos" data-secao="documentos" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8.5 8h7M8.5 11.5h7M8.5 15h4"/></svg><span>Documentos</span></a>
+      <a href="#/estoque" data-secao="estoque" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8l8-4 8 4v8l-8 4-8-4z"/><path d="M4 8l8 4 8-4M12 12v8"/></svg><span>Estoque</span></a>
       <a href="#/financeiro" data-secao="financeiro"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><span>Financeiro</span></a>
+      <a href="#/precos" data-secao="precos" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 12.5V4.5a1 1 0 0 1 1-1h8l8 8-9 9z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg><span>Preços</span></a>
+      <a href="#/atividade" data-secao="atividade" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg><span>Atividade</span></a>
+      <a href="#/ajustes" data-secao="ajustes" class="nav-extra"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg><span>Ajustes</span></a>
+      <button type="button" class="nav-lancar nav-extra" data-lancar hidden><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Lançar</span></button>
+      <button type="button" class="nav-mais" aria-expanded="false" aria-controls="mais-painel"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></svg><span>Mais</span></button>
     </nav>
+    <div id="mais-painel" class="mais-fundo" hidden>
+      <div class="mais-painel" role="menu" aria-label="Mais seções">
+        <button type="button" class="mais-lancar botao botao-principal" data-lancar hidden>+ Lançar recebimento, despesa ou estoque</button>
+        <a href="#/orcamentos" data-secao="orcamentos">Orçamentos</a>
+        <a href="#/documentos" data-secao="documentos">Documentos</a>
+        <a href="#/estoque" data-secao="estoque">Estoque</a>
+        <a href="#/precos" data-secao="precos">Preços e campanhas</a>
+        <a href="#/atividade" data-secao="atividade">Atividade</a>
+        <a href="#/ajustes" data-secao="ajustes">Ajustes e sair</a>
+      </div>
+    </div>
     <main id="conteudo" class="conteudo" tabindex="-1">
       <p class="carregando">Carregando…</p>
     </main>

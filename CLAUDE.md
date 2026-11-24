@@ -53,8 +53,12 @@ para ela no dia a dia. Faça em passos pequenos e mostre o resultado de cada um.
   copie para a outra. Se mudar o texto do aviso de privacidade, suba a versão
   do termo nos dois lados (`TERMO` na página e `ficha_online_termo_versao()` no
   banco).
-- O app do iPad (`app/`) é estático, sem build. Cores e fontes em
-  `app/tema.css`.
+- O site (`app/`, celular, iPad e computador) é estático, sem build. Cores em
+  `app/tema.css`, fontes em `app/fontes/`. Mudou um arquivo do site: suba
+  `VERSAO` em `app/sw.js` e ponha arquivo novo em `CASCA`, senão o iPad fica
+  com a versão velha guardada. Lançamento pelo site passa por `painel_gravar`,
+  que chama as mesmas funções `mcp_*` do conector: regra nova vai na função
+  `mcp_*`, não no site.
 
 ## Antes de terminar
 
