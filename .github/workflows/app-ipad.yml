@@ -1,5 +1,7 @@
 # Publica o site do consultório (pasta app/) no GitHub Pages a cada mudança nela.
 # Uma vez só: Settings > Pages > Source: GitHub Actions.
+# Dois passos separados (empacotar e publicar), como no modelo do GitHub: a
+# publicação só acha o pacote depois que o passo de empacotar termina.
 name: Site do consultório
 
 on:
@@ -9,26 +11,31 @@ on:
   workflow_dispatch:
 
 permissions:
-  actions: read # a publicação precisa achar o pacote do site nesta execução
+  actions: read
   contents: read
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
-  publicar:
+  empacotar:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v5
         with:
           path: app
+
+  publicar:
+    needs: empacotar
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v5
