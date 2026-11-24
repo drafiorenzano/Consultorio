@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read # a publicação precisa achar o pacote do site nesta execução
   contents: read
   pages: write
   id-token: write
