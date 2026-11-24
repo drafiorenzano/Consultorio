@@ -22,6 +22,7 @@ interface Opcoes {
   sessaoValida?: boolean;
   emailExistente?: string | null;
   fatores?: { id: string }[];
+  arquivo?: { tamanho: number; tipo: string } | null; // o que o Storage diz do anexo enviado
 }
 
 async function montar(op: Opcoes = {}) {
@@ -64,6 +65,8 @@ async function montar(op: Opcoes = {}) {
       },
     },
     assinar: (caminhos) => Promise.resolve(Object.fromEntries(caminhos.map((c) => [c, `https://assinado/${c}`]))),
+    envio: (caminho) => Promise.resolve(`https://envio/${caminho}?token=t`),
+    infoArquivo: () => Promise.resolve(op.arquivo === undefined ? { tamanho: 1000, tipo: "image/jpeg" } : op.arquivo),
   });
   const pedir = async (corpo: unknown, cabecalhos: Record<string, string> = {}, method = "POST") => {
     const res = await handler(
@@ -242,4 +245,75 @@ Deno.test("gravar: sessão vencida no banco vira 401", async () => {
   const r = await pedir({ acao: "gravar", parametros: { tipo: "despesa", dados: { valor: 10 } } }, comLogin());
   igual(r.status, 401);
   igual(r.corpo.sessao, "expirada");
+});
+
+Deno.test("anexo: o link de envio confere a sessão e o paciente e monta a pasta do paciente", async () => {
+  const { pedir, chamadas, comLogin } = await montar();
+  const r = await pedir({
+    acao: "anexo_envio",
+    parametros: { paciente_id: PACIENTE, tipo_arquivo: "image/jpeg", tamanho: 2_000_000 },
+  }, comLogin());
+  igual(r.status, 200);
+  const { anexo_id, caminho, url } = r.corpo.dados;
+  igual(caminho, `anexos/${PACIENTE}/${anexo_id}.jpg`);
+  igual(url, `https://envio/${caminho}?token=t`);
+  igual(chamadas, [{
+    funcao: "painel_autorizar",
+    args: { p_usuario: USUARIO, p_sessao: SESSAO, p_acao: "anexo_envio", p_paciente: PACIENTE },
+  }]);
+});
+
+Deno.test("anexo: tipo, tamanho e paciente errados são recusados antes do Storage", async () => {
+  const { pedir, chamadas, comLogin } = await montar();
+  const base = { paciente_id: PACIENTE, tipo_arquivo: "image/jpeg", tamanho: 1000 };
+  const p = (x: Record<string, unknown>) => pedir({ acao: "anexo_envio", parametros: { ...base, ...x } }, comLogin());
+  igual((await p({ tipo_arquivo: "image/heic" })).status, 400);
+  igual((await p({ tipo_arquivo: "text/html" })).status, 400);
+  igual((await p({ tamanho: 21 * 1024 * 1024 })).status, 400);
+  igual((await p({ tamanho: 0 })).status, 400);
+  igual((await p({ paciente_id: "../outro" })).status, 400);
+  igual((await pedir({ acao: "anexo_envio", parametros: base })).status, 401);
+  igual(chamadas.length, 0);
+});
+
+Deno.test("anexo: gravar usa o tamanho e o tipo reais do Storage", async () => {
+  const { pedir, chamadas, comLogin } = await montar({
+    dados: { status: "ok" },
+    arquivo: { tamanho: 54321, tipo: "application/pdf" },
+  });
+  const id = "44444444-4444-4444-8444-444444444444";
+  const dados = {
+    anexo_id: id,
+    paciente_id: PACIENTE,
+    caminho: `anexos/${PACIENTE}/${id}.pdf`,
+    tipo: "laudo",
+    tamanho_bytes: 1,
+    tipo_arquivo: "image/png",
+  };
+  const r = await pedir({ acao: "gravar", parametros: { tipo: "anexo", dados } }, comLogin());
+  igual(r.status, 200);
+  igual(chamadas[0].args.p_dados.tamanho_bytes, 54321);
+  igual(chamadas[0].args.p_dados.tipo_arquivo, "application/pdf");
+});
+
+Deno.test("anexo: arquivo que não chegou, de outro paciente ou de outro tipo não grava", async () => {
+  const id = "44444444-4444-4444-8444-444444444444";
+  const dados = { anexo_id: id, paciente_id: PACIENTE, caminho: `anexos/${PACIENTE}/${id}.jpg` };
+  const corpo = (d: Record<string, unknown>) => ({ acao: "gravar", parametros: { tipo: "anexo", dados: d } });
+
+  let m = await montar({ arquivo: null });
+  let r = await m.pedir(corpo(dados), m.comLogin());
+  igual(r.status, 400);
+  verdade(r.corpo.erro.includes("não chegou"), "explica que o arquivo não chegou");
+  igual(m.chamadas.length, 0);
+
+  m = await montar();
+  r = await m.pedir(corpo({ ...dados, paciente_id: "55555555-5555-4555-8555-555555555555" }), m.comLogin());
+  igual(r.status, 400);
+  igual(m.chamadas.length, 0);
+
+  m = await montar({ arquivo: { tamanho: 10, tipo: "text/html" } });
+  r = await m.pedir(corpo(dados), m.comLogin());
+  igual(r.status, 400);
+  igual(m.chamadas.length, 0);
 });

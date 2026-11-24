@@ -83,6 +83,27 @@ estoque, financeiro com gráfico de 12 meses, preços e campanhas, atividade
 escuro ou automático; cores e fontes em `app/tema.css`, fontes em `app/fontes/`
 (sem Google Fonts).
 
+**Tela Hoje.** Só o que importa no dia: agenda de hoje (amanhã fechado logo
+abaixo), a lista "a fazer" e os materiais. A lista junta recibos do Receita
+Saúde a emitir ou cancelar, o pacote do contador do mês passado (na fase PJ, a
+NFS-e), parcelas atrasadas ou que vencem em 7 dias, orçamentos aprovados sem
+pagamento combinado, consultas a confirmar, fichas online, orçamentos para
+acompanhar, retornos, rascunhos e campanha da semana
+(`painel_inicio_afazer`, somado à ação `inicio`). Materiais mostra o que está
+em falta ou acabando e os lotes vencidos ou que vencem em até 60 dias (só
+quando a compra tem lote e validade). O resto fica nas abas.
+
+**Exames na ficha.** A aba Exames do paciente guarda radiografia, tomografia,
+exame, foto, laudo ou documento (foto, PNG ou PDF, até 20 MB; foto grande ou
+HEIC vira JPEG de até 2400 px no próprio aparelho). A API dá um link de envio
+de uso único (`anexo_envio`) para `documentos/anexos/<paciente>/<id>.<ext>`, o
+navegador manda o arquivo direto para o Storage e grava com `gravar` tipo
+`anexo`; antes de gravar a API confere no Storage que o arquivo chegou e usa o
+tamanho e o tipo reais. O registro vai para `anexos` por
+`mcp_registrar_anexo` (só inclusão, com auditoria). Anexo errado não se apaga:
+"Tirar da ficha" grava em `anexos_retirados` com o motivo e o arquivo continua
+guardado com o prontuário.
+
 **Login.** Conta do Supabase Auth com e-mail, senha e código TOTP (app Senhas
 do iPhone). A conta só nasce, ou troca de senha, pelo convite que o Claude gera
 com `acesso_ipad` (link `#acesso=...`, uma vez só, 7 dias; o hash fica em
@@ -96,14 +117,14 @@ depois da última troca de senha, com até 30 dias, e cada acesso fica em
 token) devolve `public.painel(acao, parametros)` e, na ação `gravar`, chama
 `painel_gravar`, que usa as mesmas funções do conector
 (`mcp_registrar_pagamento`, `mcp_registrar_despesa`,
-`mcp_movimentar_estoque`) com as mesmas validações. A solicitação fica marcada
+`mcp_movimentar_estoque`, `mcp_registrar_anexo`) com as mesmas validações. A solicitação fica marcada
 como vinda do site (`solicitacoes.cliente = 'site'`) e aparece em Atividade
 como "pelo site". Só os campos listados em `painel_campos` passam. Estornos
 são registros novos, nada se apaga. `LANCAR_PELO_SITE` em `app/config.js`
 desliga os botões de lançar sem mexer no banco.
 
-**Segurança no navegador.** CSP na página (só scripts do próprio site e
-conexão só com o Supabase do consultório), sem referrer, `noindex`. A chave em
+**Segurança no navegador.** CSP na página (só scripts do próprio site,
+conexão e imagens só do Supabase do consultório), sem referrer, `noindex`. A chave em
 `app/config.js` é a publicável (pública por definição); RLS sem políticas
 continua bloqueando tudo fora das funções.
 

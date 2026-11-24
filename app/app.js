@@ -18,6 +18,7 @@ import {
 } from "./entrada.js";
 import { telaAgendaMes, telaAjustes, telaAtividade, telaDocumentos, telaOrcamentos, telaPrecos } from "./telas.js";
 import { escolherLancamento, estornar, lancarDespesa, lancarEstoque, lancarRecebimento } from "./lancar.js";
+import { abaAnexos, ligarAnexos } from "./anexos.js";
 import { barrinhasSemanas, graficoDozeMeses, ligarGraficoDozeMeses } from "./grafico.js";
 import {
   abaDocumentos,
@@ -329,36 +330,334 @@ async function telaHoje() {
   const nome = (cfg.dentista_nome ?? "Dra.").split(" ").slice(0, 2).join(" ");
   const ativasHoje = (d.agenda_hoje.consultas ?? []).filter((c) => !["cancelada", "remarcada"].includes(c.status));
   const links = linksPorConsulta(d.pendentes_de_confirmacao);
-  const n = d.numeros ?? {};
+  const grupos = gruposAFazer(d);
+  const totalAFazer = grupos.reduce((n, g) => n + g.n, 0);
+  const aCobrar = (d.cobrar ?? []).reduce((t, c) => t + Number(c.restante ?? 0), 0);
+  const faltando = (d.estoque_alertas ?? []).length + (d.validade ?? []).length;
   depoisDeMostrar.push(() => ligarLancar());
   return html`
     <div class="cabecalho"><div><h1>${saudacao}, ${nome}</h1><p>${dataLonga(d.hoje)}</p></div>${atalhosLancar()}</div>
     <div class="numeros">
-      <div class="numero"><b>${ativasHoje.length}</b><span>consultas hoje</span></div>
-      <div class="numero"><b>${n.consultas_semana ?? 0}</b><span>nesta semana</span></div>
-      <div class="numero"><b>${(d.pendentes_de_confirmacao ?? []).length}</b><span>a confirmar (7 dias)</span></div>
-      <div class="numero"><b>${n.pacientes ?? 0}</b><span>pacientes</span></div>
-      ${n.atendimentos_mes != null
-        ? html`<div class="numero"><b>${n.atendimentos_mes}</b><span>atendimentos no mês</span></div>`
-        : ""}
+      <div class="numero"><b>${ativasHoje.length}</b><span>${ativasHoje.length === 1
+        ? "consulta hoje"
+        : "consultas hoje"}</span></div>
+      <div class="numero"><b>${totalAFazer}</b><span>a fazer</span></div>
+      <div class="numero"><b>${dinheiro(aCobrar)}</b><span>a cobrar (até 7 dias)</span></div>
+      <div class="numero"><b>${faltando}</b><span>${faltando === 1
+        ? "alerta de material"
+        : "alertas de material"}</span></div>
     </div>
-    <div class="grade grade-2">
+    <div class="grade grade-2 grade-hoje">
       <div>
-        <section class="cartao"><h2>Hoje</h2>${listaDoDia(d.agenda_hoje, { links })}</section>
-        <section
-          class="cartao"><h2>Amanhã <span class="suave pequeno" style="font-family:var(--fonte-texto)">${dataLonga(
+        <section class="cartao hoje-agenda"><h2>Agenda de hoje</h2>${listaDoDia(d.agenda_hoje, { links })}</section>
+        <details class="cartao amanha">
+          <summary><h2>Amanhã <span class="suave pequeno" style="font-family:var(--fonte-texto)">${dataLonga(
             d.agenda_amanha.data,
-          )}</span></h2>${listaDoDia(d.agenda_amanha, { links, compacto: true })}</section>
+          )} · ${quantasConsultas(d.agenda_amanha)}</span></h2></summary>
+          ${listaDoDia(d.agenda_amanha, { links, compacto: true })}
+        </details>
+        ${blocoMateriais(d)}
       </div>
       <div>
-        ${blocoFichasOnline(d.fichas_online)}
-        ${blocoPendentes(d.pendentes_de_confirmacao)}
-        ${blocoRetornos(d.retornos_sem_consulta)}
-        ${blocosDeModulos(d)}
-        ${blocoRascunhos(d.orcamentos_rascunho)}
-        ${blocoCampanhas(d.campanhas)}
+        <section class="cartao afazer">
+          <h2>A fazer</h2>
+          ${grupos.length
+            ? grupos.map((g) => g.html)
+            : html`<p class="vazio">Tudo em dia. Nada pendente para hoje.</p>`}
+        </section>
       </div>
     </div>
+  `;
+}
+
+const quantasConsultas = (dia) => {
+  const n = (dia?.consultas ?? []).filter((c) => !["cancelada", "remarcada"].includes(c.status)).length;
+  return n === 0 ? "sem consultas" : n === 1 ? "1 consulta" : `${n} consultas`;
+};
+
+/** Um grupo da lista "a fazer": título, contagem, itens (até 6) e dica. */
+function grupoAFazer({ titulo, itens, dica = "", link = null, tom = "" }) {
+  const mostrar = itens.slice(0, 6);
+  return {
+    n: itens.length,
+    html: html`
+      <div class="afazer-grupo ${tom}">
+        <h3>${titulo} <span class="contagem">${itens.length}</span></h3>
+        <ul class="lista">${mostrar}</ul>
+        ${itens.length > mostrar.length
+          ? html`<p class="suave pequeno">E mais ${itens.length - mostrar.length}.</p>`
+          : ""}
+        ${dica ? html`<p class="suave pequeno orientacao">${dica}</p>` : ""}
+        ${link ? html`<a class="botao botao-pequeno" href="${link[0]}">${link[1]}</a>` : ""}
+      </div>
+    `,
+  };
+}
+
+const linhaPaciente = (id, nome, aba = "") =>
+  html`<a class="link-paciente" href="#/paciente/${id}${aba ? `/${aba}` : ""}">${nome}</a>`;
+const zapPequeno = (tel) =>
+  tel ? html`<a class="pequeno" href="${linkWhatsApp(tel)}" target="_blank" rel="noopener">${telefone(tel)}</a>` : "";
+
+/** Tudo o que pede ação, na ordem em que costuma pesar no dia. */
+function gruposAFazer(d) {
+  const grupos = [];
+  const hoje = d.hoje;
+
+  const rec = d.recibos_a_emitir;
+  if (rec?.quantidade) {
+    const pendentes = rec.quantidade - (rec.a_cancelar ?? 0);
+    const itens = [];
+    if (pendentes > 0) {
+      itens.push(html`
+        <li>
+          <div
+            class="linha"><span><strong>${pendentes}</strong> ${pendentes === 1
+              ? "recibo para emitir"
+              : "recibos para emitir"}${rec.total
+              ? ` (${dinheiro(rec.total)})`
+              : ""}</span><span class="etiqueta etiqueta-aviso">desde ${dataCurta(rec.mais_antigo)}</span></div>
+        </li>
+      `);
+    }
+    if (rec.a_cancelar) {
+      itens.push(
+        html`<li><strong>${rec.a_cancelar}</strong> ${
+          rec.a_cancelar === 1 ? "recibo para cancelar" : "recibos para cancelar"
+        } (pagamento estornado)</li>`,
+      );
+    }
+    grupos.push(grupoAFazer({
+      titulo: "Recibos do Receita Saúde",
+      itens,
+      dica: "Emita no app Receita Saúde e depois diga ao Claude “emiti os recibos”.",
+      link: ["#/financeiro", "Ver recibos"],
+    }));
+  }
+
+  if (d.pacote_contador) {
+    grupos.push(grupoAFazer({
+      titulo: d.regime === "pj" ? "Contador (nota fiscal)" : "Contador",
+      itens: [
+        html`<li>Mandar o pacote de <strong>${d.pacote_contador.mes}</strong> para o contador${
+          d.regime === "pj" ? " (ele emite a NFS-e)" : ""
+        }.</li>`,
+      ],
+      dica: "Peça ao Claude: “gera o pacote do contador”.",
+    }));
+  }
+
+  if (d.cobrar?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Cobrar",
+      tom: d.cobrar.some((c) => c.atrasada) ? "afazer-alerta" : "",
+      itens: d.cobrar.map((c) =>
+        html`<li>
+          <div class="linha"><div>${linhaPaciente(c.paciente_id, c.paciente, "financeiro")}
+            <div class="suave pequeno">${
+          [c.descricao, c.parcela ? `parcela ${c.parcela}` : null].filter(Boolean).join(" · ")
+        }</div></div>
+            <div class="direita"><div class="forte">${dinheiro(c.restante)}</div>
+            <span class="etiqueta ${
+          c.atrasada ? "etiqueta-alerta" : c.vencimento === hoje ? "etiqueta-aviso" : "etiqueta-info"
+        }">${
+          c.atrasada
+            ? `venceu ${dataCurta(c.vencimento)}`
+            : c.vencimento === hoje
+            ? "vence hoje"
+            : `vence ${dataCurta(c.vencimento)}`
+        }</span></div></div>
+          ${zapPequeno(c.telefone)}
+        </li>`
+      ),
+      dica: "Quando receber, lance o recebimento: ele quita a parcela mais antiga.",
+    }));
+  }
+
+  if (d.aprovados_sem_pagamento?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Aprovados sem pagamento",
+      itens: d.aprovados_sem_pagamento.map((o) =>
+        html`
+          <li>
+            <div class="linha"><div>${linhaPaciente(o.paciente_id, o.paciente, "orcamentos")}
+                    <div class="suave pequeno">${o.titulo ?? "Orçamento"}${o.numero
+                      ? ` nº ${o.numero}`
+                      : ""} · aprovado em ${dataCurta(o.aprovado_em)}</div></div><span class="forte">${o.valor != null
+                      ? dinheiro(o.valor)
+                      : ""}</span></div>
+          </li>
+        `
+      ),
+      dica: "Combine a entrada ou as parcelas com o paciente e lance (ou conte ao Claude).",
+    }));
+  }
+
+  if (d.pendentes_de_confirmacao?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Confirmar consultas",
+      itens: d.pendentes_de_confirmacao.map((p) =>
+        html`
+          <li>
+            <div class="linha"><div>${linhaPaciente(p.paciente_id, p.paciente)}
+                    <div class="suave pequeno">${p.dia_semana}, ${dataCurta(p.data)} às ${p.inicio}${p.motivo
+                      ? ` · ${p.motivo}`
+                      : ""}</div></div>
+                    ${p.link_whatsapp
+                      ? html`<a class="botao botao-whatsapp botao-pequeno" href="${p.link_whatsapp}" target="_blank" rel="noopener">${ICONE_CONVERSA} WhatsApp</a>`
+                      : html`<span class="etiqueta etiqueta-aviso">sem telefone</span>`}</div>
+          </li>
+        `
+      ),
+      dica:
+        "O botão abre o WhatsApp com a mensagem pronta. Quando o paciente responder, diga ao Claude “fulano confirmou”.",
+    }));
+  }
+
+  if (d.fichas_online?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Fichas online para revisar",
+      itens: d.fichas_online.map((f) =>
+        html`
+          <li>
+            <div class="linha">${linhaPaciente(
+              f.paciente_id,
+              f.paciente,
+            )}<span class="suave pequeno">enviada ${dataCurta(f.enviada_em)}</span></div>
+          </li>
+        `
+      ),
+      dica: "Peça ao Claude: “mostra a ficha online da fulana” para revisar e confirmar.",
+    }));
+  }
+
+  if (d.orcamentos_acompanhar?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Falar sobre orçamento",
+      itens: d.orcamentos_acompanhar.map((o) =>
+        html`<li><div class="linha"><div>${linhaPaciente(o.paciente_id, o.paciente, "orcamentos")}
+          <div class="suave pequeno">${[o.titulo, valorOrcamento(o)].filter(Boolean).join(" · ")}</div></div>
+          <span class="etiqueta ${o.em_atraso ? "etiqueta-alerta" : "etiqueta-aviso"}">contato ${
+          dataCurta(o.proximo_contato)
+        }</span></div>
+          ${zapPequeno(o.telefone)}</li>`
+      ),
+      dica: "Depois de falar com o paciente, conte ao Claude (“liguei pra fulana sobre o orçamento”).",
+    }));
+  }
+
+  if (d.retornos_sem_consulta?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Retornos para marcar",
+      itens: d.retornos_sem_consulta.map((r) =>
+        html`<li><div class="linha">${linhaPaciente(r.paciente_id, r.paciente)}
+          <span class="etiqueta ${r.atrasado ? "etiqueta-alerta" : "etiqueta-aviso"}">${
+          r.atrasado ? "desde" : "para"
+        } ${dataCurta(r.retorno_previsto)}</span></div>
+          ${r.proxima_etapa ? html`<div class="suave pequeno">${r.proxima_etapa}</div>` : ""}
+          ${zapPequeno(r.telefone)}</li>`
+      ),
+    }));
+  }
+
+  if (d.orcamentos_rascunho?.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Orçamentos para terminar",
+      itens: d.orcamentos_rascunho.map((o) =>
+        html`
+          <li>
+            <div class="linha"><div>${linhaPaciente(o.paciente_id, o.paciente, "orcamentos")}
+                    <div class="suave pequeno">${o.titulo ?? ""}</div></div><span class="forte">${valorOrcamento(
+                      o,
+                    )}</span></div>
+          </li>
+        `
+      ),
+      dica: "Estão em rascunho: ainda não foram apresentados ao paciente.",
+    }));
+  }
+
+  const limite = somarDias(hoje, 7);
+  const campanhas = (d.campanhas ?? []).filter((c) =>
+    c.situacao === "em_andamento" || (c.inicio && c.inicio <= limite)
+  );
+  if (campanhas.length) {
+    grupos.push(grupoAFazer({
+      titulo: "Campanha",
+      itens: campanhas.map((c) =>
+        html`
+          <li>
+            <div class="linha"><span class="forte">${c.nome}</span><span class="etiqueta ${c.situacao === "em_andamento"
+              ? "etiqueta-ok"
+              : "etiqueta-info"}">${c.situacao === "em_andamento"
+              ? "acontecendo"
+              : `começa ${dataCurta(c.inicio)}`}</span></div>
+            <div class="suave pequeno">${[c.periodo, c.local, c.cidade].filter(Boolean).join(" · ")}</div>
+          </li>
+        `
+      ),
+      link: ["#/precos", "Ver preços da campanha"],
+    }));
+  }
+  return grupos;
+}
+
+/** Materiais: em falta, acabando, vencidos e vencendo. */
+function blocoMateriais(d) {
+  const alertas = d.estoque_alertas ?? [];
+  const validade = d.validade ?? [];
+  const vencidos = validade.filter((v) => v.vencido);
+  const vencendo = validade.filter((v) => !v.vencido);
+  const linhaAlerta = (i) =>
+    html`<li><div class="linha"><span class="forte">${i.nome}</span><span class="etiqueta ${
+      i.zerado ? "etiqueta-alerta" : "etiqueta-aviso"
+    }">${i.zerado ? "acabou" : i.quantidade ?? "baixo"}</span></div>${
+      i.mensagem ? html`<div class="suave pequeno">${i.mensagem}</div>` : ""
+    }</li>`;
+  const linhaValidade = (v) =>
+    html`<li><div class="linha"><span><span class="forte">${v.nome}</span>${
+      v.lote
+        ? html`
+          <span class="suave pequeno">lote ${v.lote}</span>
+        `
+        : ""
+    }</span><span class="etiqueta ${v.vencido ? "etiqueta-alerta" : "etiqueta-aviso"}">${
+      v.vencido ? "venceu" : "vence"
+    } ${dataCurta(v.validade, true)}</span></div>${
+      v.quantidade ? html`<div class="suave pequeno">${v.quantidade} no estoque</div>` : ""
+    }</li>`;
+  const nada = !alertas.length && !validade.length;
+  return html`
+    <section class="cartao materiais">
+      <h2>Materiais</h2>
+      ${alertas.length
+        ? html`
+          <h3>Em falta ou acabando <span class="contagem">${alertas.length}</span></h3>
+          <ul class="lista">${alertas.map(linhaAlerta)}</ul>
+        `
+        : ""}
+      ${vencidos.length
+        ? html`
+          <h3>Vencidos <span class="contagem">${vencidos.length}</span></h3>
+          <ul class="lista">${vencidos.map(linhaValidade)}</ul>
+          <p class="suave pequeno orientacao">Separe para descarte e lance como “venceu” no estoque.</p>
+        `
+        : ""}
+      ${vencendo.length
+        ? html`
+          <h3>Vencem em até 60 dias <span class="contagem">${vencendo.length}</span></h3>
+          <ul class="lista">${vencendo.map(linhaValidade)}</ul>
+        `
+        : ""}
+      ${nada ? html`<p class="vazio">Nada faltando e nada vencendo.</p>` : ""}
+      ${!d.lotes_com_validade
+        ? html`
+          <p
+            class="suave pequeno orientacao">A validade aparece aqui quando a compra tem lote e validade. Ao registrar uma compra, diga ao Claude, por exemplo: “articaína, lote 123, validade 03/2027”.</p>
+        `
+        : ""}
+      <a class="botao botao-pequeno" href="#/estoque">Ver estoque</a>
+    </section>
   `;
 }
 
@@ -373,69 +672,6 @@ function atalhosLancar(tipos = ["recebimento", "despesa", "estoque"]) {
       }</button>`
     )
   }</div>`;
-}
-
-function blocoFichasOnline(fichas) {
-  if (!fichas?.length) return "";
-  return html`
-    <section class="cartao aviso-faixa">
-      <h2>Fichas online para revisar</h2>
-      <ul class="lista">${fichas.map((f) =>
-        html`
-          <li>
-            <div
-              class="linha"><a class="link-paciente" href="#/paciente/${f.paciente_id}">${f
-                .paciente}</a><span class="suave pequeno">enviada ${dataCurta(f.enviada_em)}</span></div>
-          </li>
-        `
-      )}</ul>
-      <p class="suave pequeno"
-        style="margin:10px 0 0">O paciente preencheu a ficha pelo link. Peça ao Claude: “mostra a ficha online da fulana” para revisar e confirmar.</p>
-    </section>
-  `;
-}
-
-function blocoRascunhos(rascunhos) {
-  if (!rascunhos?.length) return "";
-  return html`
-    <section class="cartao">
-      <h2>Orçamentos em rascunho</h2>
-      <ul class="lista">${rascunhos.map((o) =>
-        html`
-          <li>
-            <div class="linha"><div><a class="link-paciente" href="#/paciente/${o.paciente_id}/orcamentos">${o
-              .paciente}</a>
-                <div class="suave pequeno">${o.titulo ?? ""}</div></div><span class="forte">${valorOrcamento(
-                  o,
-                )}</span></div>
-          </li>
-        `
-      )}</ul>
-      <div class="botoes" style="margin-top:10px"><a class="botao" href="#/orcamentos">Ver orçamentos</a></div>
-    </section>
-  `;
-}
-
-function blocoCampanhas(campanhas) {
-  if (!campanhas?.length) return "";
-  return html`
-    <section class="cartao">
-      <h2>Campanhas</h2>
-      <ul class="lista">${campanhas.map((c) =>
-        html`
-          <li>
-            <div class="linha"><span class="forte">${c.nome}</span><span class="etiqueta ${c.situacao === "em_andamento"
-              ? "etiqueta-ok"
-              : "etiqueta-info"}">${String(c.situacao ?? "").replaceAll("_", " ")}</span></div>
-            <div class="suave pequeno">${[c.periodo, c.local, c.cidade].filter(Boolean).join(" · ")}${c.precos_especiais
-              ? ` · ${c.precos_especiais} preços especiais`
-              : ""}</div>
-          </li>
-        `
-      )}</ul>
-      <div class="botoes" style="margin-top:10px"><a class="botao" href="#/precos">Ver preços</a></div>
-    </section>
-  `;
 }
 
 function blocoPendentes(pendentes) {
@@ -460,116 +696,6 @@ function blocoPendentes(pendentes) {
       `
       : html`<p class="vazio">Tudo confirmado nos próximos 7 dias.</p>`
   }</section>`;
-}
-
-function blocoRetornos(retornos) {
-  if (!retornos?.length) return "";
-  return html`
-    <section class="cartao">
-      <h2>Retornos sem consulta</h2>
-      <ul class="lista">${retornos.map((r) =>
-        html`<li><div class="linha"><a class="link-paciente" href="#/paciente/${r.paciente_id}">${r.paciente}</a>
-        <span class="etiqueta ${r.atrasado ? "etiqueta-alerta" : "etiqueta-aviso"}">${r.atrasado ? "desde" : "para"} ${
-          dataCurta(r.retorno_previsto)
-        }</span></div>
-        ${r.proxima_etapa ? html`<div class="suave pequeno">${r.proxima_etapa}</div>` : ""}
-        ${
-          r.telefone
-            ? html`<div class="pequeno"><a href="${linkWhatsApp(r.telefone)}" target="_blank" rel="noopener">${
-              telefone(r.telefone)
-            }</a></div>`
-            : ""
-        }</li>`
-      )}</ul>
-    </section>
-  `;
-}
-
-// Blocos que os módulos acrescentam ao início (orçamentos, estoque, financeiro).
-function blocosDeModulos(d) {
-  const blocos = [];
-  if (d.orcamentos_acompanhar?.length) {
-    blocos.push(html`
-      <section class="cartao">
-        <h2>Orçamentos para acompanhar</h2>
-        <ul class="lista">${d.orcamentos_acompanhar.map((o) =>
-          html`<li><div class="linha"><div><a class="link-paciente" href="#/paciente/${o.paciente_id}/orcamentos">${o.paciente}</a>
-        <div class="suave pequeno">${[o.titulo, valorOrcamento(o)].filter(Boolean).join(" · ")}</div></div>
-        <span class="etiqueta ${o.em_atraso ? "etiqueta-alerta" : "etiqueta-aviso"}">contato ${
-            dataCurta(o.proximo_contato)
-          }</span></div>
-        ${
-            o.telefone
-              ? html`<div class="pequeno"><a href="${linkWhatsApp(o.telefone)}" target="_blank" rel="noopener">${
-                telefone(o.telefone)
-              }</a></div>`
-              : ""
-          }</li>`
-        )}</ul>
-        <p class="suave pequeno"
-          style="margin:10px 0 0">Depois de falar com o paciente, conte ao Claude (“liguei pra fulana sobre o orçamento”).</p>
-      </section>
-    `);
-  }
-  if (d.estoque_alertas?.length) {
-    blocos.push(html`
-      <section class="cartao">
-        <h2>Estoque acabando</h2>
-        <ul class="lista">${d.estoque_alertas.map((i) =>
-          html`<li><div class="linha"><span class="forte">${i.nome}</span><span class="etiqueta ${
-            i.zerado ? "etiqueta-alerta" : "etiqueta-aviso"
-          }">${i.quantidade ?? "0"}</span></div>${
-            i.mensagem ? html`<div class="suave pequeno">${i.mensagem}</div>` : ""
-          }</li>`
-        )}</ul>
-        <div class="botoes" style="margin-top:10px"><a class="botao" href="#/estoque">Ver estoque</a></div>
-      </section>
-    `);
-  }
-  if (d.financeiro_mes) {
-    const f = d.financeiro_mes;
-    blocos.push(html`
-      <section class="cartao">
-        <h2>Financeiro do mês</h2>
-        <dl class="dados">
-            ${f.recebido != null
-              ? html`
-                <div>
-                  <dt>Recebido</dt>
-                  <dd class="forte">${dinheiro(f.recebido)}</dd>
-                </div>
-              `
-              : ""}
-            ${f.a_receber
-              ? html`
-                <div>
-                  <dt>Ainda a receber no mês</dt>
-                  <dd>${dinheiro(f.a_receber)}</dd>
-                </div>
-              `
-              : ""}
-            ${f.despesas != null
-              ? html`
-                <div>
-                  <dt>Despesas</dt>
-                  <dd>${dinheiro(f.despesas)}</dd>
-                </div>
-              `
-              : ""}
-            ${f.resultado != null
-              ? html`
-                <div>
-                  <dt>Resultado</dt>
-                  <dd class="forte">${dinheiro(f.resultado)}</dd>
-                </div>
-              `
-              : ""}
-          </dl>
-        <div class="botoes" style="margin-top:10px"><a class="botao" href="#/financeiro">Ver financeiro</a></div>
-      </section>
-    `);
-  }
-  return blocos;
 }
 
 // ------------------------------------------------------------------
@@ -804,6 +930,7 @@ async function telaPaciente(id, aba = "resumo") {
     ["resumo", "Resumo"],
     ["anamnese", "Anamnese"],
     ["odontograma", "Odontograma"],
+    ["anexos", `Exames${p.anexos?.length ? ` (${p.anexos.length})` : ""}`],
     ["atendimentos", `Atendimentos${p.total_atendimentos ? ` (${p.total_atendimentos})` : ""}`],
     ["consultas", "Consultas"],
     ...(p.orcamentos ? [["orcamentos", "Orçamentos"]] : []),
@@ -818,13 +945,20 @@ async function telaPaciente(id, aba = "resumo") {
     consultas: abaConsultas,
     orcamentos: abaOrcamentos,
     documentos: abaDocumentos,
+    anexos: abaAnexos,
     financeiro: abaFinanceiro,
   };
   const corpo = (telas[aba] ?? abaResumo)(p);
   const zap = linkWhatsApp(p.telefone);
-  depoisDeMostrar.push(() =>
-    ligarLancar({ recebimento: () => lancarRecebimento({ paciente: { id: p.id, nome: p.nome }, depois: recarregar }) })
-  );
+  depoisDeMostrar.push(() => {
+    ligarLancar({ recebimento: () => lancarRecebimento({ paciente: { id: p.id, nome: p.nome }, depois: recarregar }) });
+    ligarAnexos(conteudo(), p, () => {
+      // volta para a aba de exames com a lista nova
+      if (location.hash === `#/paciente/${p.id}/anexos`) return recarregar();
+      cacheFicha.clear();
+      location.hash = `#/paciente/${p.id}/anexos`;
+    });
+  });
   return html`
     <p style="margin:0 0 10px"><a class="suave pequeno" href="#/pacientes">‹ Pacientes</a></p>
     <div class="ficha-topo">
@@ -836,7 +970,10 @@ async function telaPaciente(id, aba = "resumo") {
       </div>
       <div class="botoes">
         ${podeLancar()
-          ? html`<button type="button" class="botao botao-principal" data-lancar-tipo="recebimento">+ Recebimento</button>`
+          ? html`
+            <button type="button" class="botao botao-principal" data-lancar-tipo="recebimento">+ Recebimento</button>
+            <button type="button" class="botao" data-anexar>+ Exame</button>
+          `
           : ""}
         ${p.telefone ? html`<a class="botao" href="tel:+55${p.telefone}">${telefone(p.telefone)}</a>` : ""}
         ${zap

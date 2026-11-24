@@ -9,6 +9,10 @@
 // - Lançamentos: acao "gravar" com {tipo, dados}. Mesmo login; painel_gravar
 //   confere a sessão e chama a mesma função do conector (pagamento, despesa,
 //   estornos e estoque), com a solicitação marcada como vinda do site.
+// - Exames e arquivos: acao "anexo_envio" devolve um link de envio para o
+//   Storage (bucket privado, pasta anexos/<paciente>/); o navegador manda o
+//   arquivo direto para lá e depois grava com "gravar" tipo "anexo". A API
+//   confere no Storage que o arquivo chegou e manda o tamanho e o tipo reais.
 // - Convite: "x-acesso: <código>" do link que o Claude gera (acesso_ipad).
 //   "convite" diz para qual e-mail ele vale; "criar_conta" gasta o convite e
 //   cria a conta (ou troca a senha e apaga o segundo fator antigo).
@@ -28,6 +32,10 @@ export interface DependenciasPainel {
   auth: ContasAuth;
   /** Links temporários para arquivos do Storage (PDFs), num pedido só: caminho -> link. */
   assinar?: (caminhos: string[], segundos: number) => Promise<Record<string, string>>;
+  /** Link de envio (uma vez) para um arquivo novo no Storage. */
+  envio?: (caminho: string) => Promise<string>;
+  /** Tamanho e tipo do arquivo que está no Storage, ou null se não chegou. */
+  infoArquivo?: (caminho: string) => Promise<{ tamanho: number; tipo: string } | null>;
 }
 
 export const ACOES = new Set([
@@ -44,7 +52,22 @@ export const ACOES = new Set([
   "configuracoes",
 ]);
 const ACOES_CONVITE = new Set(["convite", "criar_conta"]);
-export const LANCAMENTOS = new Set(["pagamento", "estornar_pagamento", "despesa", "estornar_despesa", "estoque"]);
+export const LANCAMENTOS = new Set([
+  "pagamento",
+  "estornar_pagamento",
+  "despesa",
+  "estornar_despesa",
+  "estoque",
+  "anexo",
+  "retirar_anexo",
+]);
+/** Arquivos aceitos na ficha: tipo -> extensão. Até 20 MB (o limite do bucket). */
+export const TIPOS_ANEXO: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+};
+export const LIMITE_ANEXO = 20 * 1024 * 1024;
 const LIMITE_LINKS = 400;
 
 const CORS = {
@@ -90,6 +113,22 @@ export function problemaNaSenha(senha: unknown): string | null {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const CAMINHO_ANEXO = /^anexos\/([0-9a-f-]{36})\/([0-9a-f-]{36})\.(pdf|jpg|png)$/;
+
+/** Confere no Storage o arquivo do anexo e completa tamanho e tipo reais. */
+async function prepararAnexo(dados: Record<string, unknown>, deps: DependenciasPainel) {
+  const caminho = typeof dados.caminho === "string" ? dados.caminho : "";
+  const m = caminho.match(CAMINHO_ANEXO);
+  if (
+    !m || m[1] !== String(dados.paciente_id ?? "").toLowerCase() || m[2] !== String(dados.anexo_id ?? "").toLowerCase()
+  ) throw new Error("Arquivo do anexo inválido.");
+  if (!deps.infoArquivo) throw new Error("Envio de arquivos indisponível.");
+  const info = await deps.infoArquivo(caminho);
+  if (!info) throw new Error("O arquivo não chegou. Tente enviar de novo.");
+  if (TIPOS_ANEXO[info.tipo] !== m[3]) throw new Error("Esse tipo de arquivo não vale: use PDF, JPG ou PNG.");
+  if (!(info.tamanho > 0) || info.tamanho > LIMITE_ANEXO) throw new Error("O arquivo passa de 20 MB.");
+  return { ...dados, tamanho_bytes: info.tamanho, tipo_arquivo: info.tipo };
+}
 
 /** Troca cada {"arquivo": "caminho"} por um link temporário em "link" (um pedido só ao Storage). */
 async function assinarArquivos(valor: unknown, deps: DependenciasPainel): Promise<unknown> {
@@ -179,7 +218,8 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
     try {
       if (ACOES_CONVITE.has(acao)) return await convite(acao, req.headers.get("x-acesso") ?? "", parametros, deps);
       const gravar = acao === "gravar";
-      if (!ACOES.has(acao) && !gravar) return json({ erro: "Ação desconhecida." }, 400);
+      const envio = acao === "anexo_envio";
+      if (!ACOES.has(acao) && !gravar && !envio) return json({ erro: "Ação desconhecida." }, 400);
       const tipo = typeof parametros.tipo === "string" ? parametros.tipo : "";
       const lancamento = parametros.dados && typeof parametros.dados === "object" && !Array.isArray(parametros.dados)
         ? parametros.dados
@@ -196,14 +236,36 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
       const sessao = typeof d.session_id === "string" ? d.session_id : null;
 
       if (gravar) {
+        const dados = tipo === "anexo" ? await prepararAnexo(lancamento as Record<string, unknown>, deps) : lancamento;
         const r = await deps.rpc("painel_gravar", {
           p_usuario: usuario.id,
           p_sessao: sessao,
           p_acao: tipo,
-          p_dados: lancamento,
+          p_dados: dados,
         });
         if ((r as { status?: string } | null)?.status === "sessao_expirada") return json(sair, 401);
         return json({ dados: r });
+      }
+      if (envio) {
+        const pac = typeof parametros.paciente_id === "string" && UUID.test(parametros.paciente_id)
+          ? parametros.paciente_id.toLowerCase()
+          : "";
+        const ext = TIPOS_ANEXO[String(parametros.tipo_arquivo ?? "")];
+        const tamanho = Number(parametros.tamanho);
+        if (!pac) return json({ erro: "Escolha o paciente." }, 400);
+        if (!ext) return json({ erro: "Esse tipo de arquivo não vale: use PDF, JPG ou PNG." }, 400);
+        if (!(tamanho > 0) || tamanho > LIMITE_ANEXO) return json({ erro: "O arquivo passa de 20 MB." }, 400);
+        if (!deps.envio) return json({ erro: "Envio de arquivos indisponível." }, 404);
+        const ok = await deps.rpc("painel_autorizar", {
+          p_usuario: usuario.id,
+          p_sessao: sessao,
+          p_acao: "anexo_envio",
+          p_paciente: pac,
+        });
+        if (ok !== true) return json(sair, 401);
+        const id = crypto.randomUUID();
+        const caminho = `anexos/${pac}/${id}.${ext}`;
+        return json({ dados: { anexo_id: id, caminho, url: await deps.envio(caminho) } });
       }
       const paciente = acao === "paciente" && typeof parametros.id === "string" && UUID.test(parametros.id)
         ? parametros.id

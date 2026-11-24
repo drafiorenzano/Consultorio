@@ -79,9 +79,39 @@ async function assinar(caminhos: string[], segundos: number): Promise<Record<str
   return links;
 }
 
+/** Link de envio (uma vez) para um arquivo novo no bucket "documentos". */
+async function envio(caminho: string): Promise<string> {
+  const resposta = await fetch(`${SUPABASE_URL}/storage/v1/object/upload/sign/documentos/${caminho}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...cabecalhosSecretos() },
+    body: "{}",
+  });
+  const corpo = await resposta.json().catch(() => null) as { url?: string } | null;
+  if (!resposta.ok || !corpo?.url) throw new Error(`Storage ${resposta.status} ao preparar o envio.`);
+  return `${SUPABASE_URL}/storage/v1${corpo.url}`;
+}
+
+/** Tamanho e tipo de um arquivo do bucket "documentos" (null se não existe). */
+async function infoArquivo(caminho: string): Promise<{ tamanho: number; tipo: string } | null> {
+  const i = caminho.lastIndexOf("/");
+  const resposta = await fetch(`${SUPABASE_URL}/storage/v1/object/list/documentos`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...cabecalhosSecretos() },
+    body: JSON.stringify({ prefix: caminho.slice(0, i), search: caminho.slice(i + 1), limit: 5, offset: 0 }),
+  });
+  const lista = await resposta.json().catch(() => null);
+  if (!resposta.ok || !Array.isArray(lista)) throw new Error(`Storage ${resposta.status} ao conferir o arquivo.`);
+  const item = (lista as { name?: string; metadata?: { size?: number; mimetype?: string } }[])
+    .find((x) => x.name === caminho.slice(i + 1));
+  if (!item?.metadata) return null;
+  return { tamanho: Number(item.metadata.size ?? 0), tipo: String(item.metadata.mimetype ?? "") };
+}
+
 Deno.serve(criarHandlerPainel({
   rpc,
   assinar,
+  envio,
+  infoArquivo,
   auth: {
     usuario: async (token) => {
       const resposta = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
