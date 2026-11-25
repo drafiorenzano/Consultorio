@@ -1,7 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // Testes da API do site do consultório (sem banco nem Auth de verdade).
 
-import { criarHandlerPainel, problemaNaSenha, sha256Hex } from "../supabase/functions/painel/handler.ts";
+import { criarHandlerPainel, lerPdf, problemaNaSenha, sha256Hex } from "../supabase/functions/painel/handler.ts";
 import { igual, verdade } from "./util.ts";
 
 const CONVITE = "conviteDoSite_0123456789abcdefghijklmnopqr";
@@ -23,12 +23,14 @@ interface Opcoes {
   emailExistente?: string | null;
   fatores?: { id: string }[];
   arquivo?: { tamanho: number; tipo: string } | null; // o que o Storage diz do anexo enviado
+  caminhoPdf?: string | null; // o que painel_orcamento_caminho devolve
 }
 
 async function montar(op: Opcoes = {}) {
   const hashConvite = await sha256Hex(CONVITE);
   const chamadas: any[] = [];
   const auth: any[] = [];
+  const salvos: any[] = [];
   const handler = criarHandlerPainel({
     rpc: (funcao, args) => {
       chamadas.push({ funcao, args });
@@ -46,6 +48,11 @@ async function montar(op: Opcoes = {}) {
       if (funcao === "painel_usuario_por_email") return Promise.resolve(op.emailExistente ?? null);
       if (funcao === "painel_conta_registrar") return Promise.resolve(null);
       if (funcao === "painel_autorizar") return Promise.resolve(op.sessaoValida ?? true);
+      if (funcao === "painel_orcamento_caminho") {
+        return Promise.resolve(
+          op.caminhoPdf === undefined ? `${PACIENTE}/orcamento-7-20261125-020000-ab12.pdf` : op.caminhoPdf,
+        );
+      }
       return Promise.resolve(op.dados === undefined ? { ok: true } : op.dados);
     },
     auth: {
@@ -67,6 +74,10 @@ async function montar(op: Opcoes = {}) {
     assinar: (caminhos) => Promise.resolve(Object.fromEntries(caminhos.map((c) => [c, `https://assinado/${c}`]))),
     envio: (caminho) => Promise.resolve(`https://envio/${caminho}?token=t`),
     infoArquivo: () => Promise.resolve(op.arquivo === undefined ? { tamanho: 1000, tipo: "image/jpeg" } : op.arquivo),
+    salvar: (caminho, bytes, tipo) => {
+      salvos.push({ caminho, tamanho: bytes.length, tipo });
+      return Promise.resolve();
+    },
   });
   const pedir = async (corpo: unknown, cabecalhos: Record<string, string> = {}, method = "POST") => {
     const res = await handler(
@@ -83,7 +94,7 @@ async function montar(op: Opcoes = {}) {
     };
   };
   const comLogin = (token = TOKEN_OK) => ({ authorization: `Bearer ${token}` });
-  return { chamadas, auth, pedir, handler, comLogin };
+  return { chamadas, auth, salvos, pedir, handler, comLogin };
 }
 
 Deno.test("painel: sem login dá 401 e não lê nada", async () => {
@@ -316,4 +327,110 @@ Deno.test("anexo: arquivo que não chegou, de outro paciente ou de outro tipo n�
   r = await m.pedir(corpo(dados), m.comLogin());
   igual(r.status, 400);
   igual(m.chamadas.length, 0);
+});
+
+// ------------------------------------------------------------------
+// Orçamento pelo site
+// ------------------------------------------------------------------
+const ORCAMENTO = "66666666-6666-4666-8666-666666666666";
+const PDF_FALSO = new TextEncoder().encode("%PDF-1.3\n" + "x".repeat(400) + "\n%%EOF");
+const base64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
+
+Deno.test("orçamento: o formulário lê o catálogo e registra o paciente aberto", async () => {
+  const { pedir, chamadas, comLogin } = await montar({ dados: { procedimentos: [] } });
+  const r = await pedir({ acao: "orcamento_novo", parametros: { paciente_id: PACIENTE } }, comLogin());
+  igual(r.status, 200);
+  igual(chamadas[0].args, { p_usuario: USUARIO, p_sessao: SESSAO, p_acao: "orcamento_novo", p_paciente: PACIENTE });
+  igual(chamadas[1], { funcao: "painel", args: { p_acao: "orcamento_novo", p_params: { paciente_id: PACIENTE } } });
+});
+
+Deno.test("orçamento: gravar vai para painel_gravar e o documento do conector não volta ao navegador", async () => {
+  const { pedir, chamadas, comLogin } = await montar({
+    dados: {
+      status: "ok",
+      orcamento: { id: ORCAMENTO, numero: 7 },
+      documento: { caminho: "x", dados: {} },
+      avisos: [],
+    },
+  });
+  const dados = {
+    paciente_id: PACIENTE,
+    itens: [{ procedimento_codigo: "resina_2_faces", dente: 36 }],
+    apresentar: true,
+  };
+  const r = await pedir({ acao: "gravar", parametros: { tipo: "orcamento", dados } }, comLogin());
+  igual(r.status, 200);
+  igual(chamadas, [{
+    funcao: "painel_gravar",
+    args: { p_usuario: USUARIO, p_sessao: SESSAO, p_acao: "orcamento", p_dados: dados },
+  }]);
+  igual(r.corpo.dados.orcamento.numero, 7);
+  igual("documento" in r.corpo.dados, false);
+});
+
+Deno.test("orçamento: o PDF é guardado no caminho do banco e registrado com tamanho e SHA-256 daqui", async () => {
+  const { pedir, chamadas, salvos, comLogin } = await montar({ dados: { status: "ok", documento_id: "d1" } });
+  const dados = { orcamento_id: ORCAMENTO, pdf: base64(PDF_FALSO), caminho: "outro/lugar.pdf", sha256: "0".repeat(64) };
+  const r = await pedir({ acao: "gravar", parametros: { tipo: "orcamento_pdf", dados } }, comLogin());
+  igual(r.status, 200);
+  const caminho = `${PACIENTE}/orcamento-7-20261125-020000-ab12.pdf`;
+  igual(chamadas.map((c) => c.funcao), ["painel_autorizar", "painel_orcamento_caminho", "painel_gravar"]);
+  igual(chamadas[0].args.p_acao, "orcamento_pdf");
+  igual(chamadas[1].args, { p_orcamento: ORCAMENTO });
+  igual(salvos, [{ caminho, tamanho: PDF_FALSO.length, tipo: "application/pdf" }]);
+  const gravado = chamadas[2].args;
+  igual(gravado.p_acao, "orcamento_pdf");
+  igual(gravado.p_dados.caminho, caminho);
+  igual(gravado.p_dados.tamanho_bytes, PDF_FALSO.length);
+  igual(
+    gravado.p_dados.sha256,
+    Array.from(
+      new Uint8Array(await crypto.subtle.digest("SHA-256", PDF_FALSO)),
+      (b) => b.toString(16).padStart(2, "0"),
+    ).join(""),
+  );
+  igual("pdf" in gravado.p_dados, false);
+});
+
+Deno.test("orçamento: arquivo que não é PDF, base64 quebrado ou orçamento inválido não chega ao Storage", async () => {
+  const { pedir, chamadas, salvos, comLogin } = await montar();
+  const p = (dados: Record<string, unknown>) =>
+    pedir({ acao: "gravar", parametros: { tipo: "orcamento_pdf", dados } }, comLogin());
+  igual(
+    (await p({ orcamento_id: ORCAMENTO, pdf: base64(new TextEncoder().encode("<html>" + "x".repeat(300))) })).status,
+    400,
+  );
+  igual((await p({ orcamento_id: ORCAMENTO, pdf: "não é base64!" })).status, 400);
+  igual((await p({ orcamento_id: ORCAMENTO })).status, 400);
+  igual((await p({ orcamento_id: "../x", pdf: base64(PDF_FALSO) })).status, 400);
+  igual(chamadas.length, 0);
+  igual(salvos.length, 0);
+  let erro: unknown = null;
+  try {
+    lerPdf("A".repeat(12 * 1024 * 1024));
+  } catch (e) {
+    erro = e;
+  }
+  verdade(String(erro).includes("grande"), "PDF grande demais é recusado");
+});
+
+Deno.test("orçamento: sessão vencida não guarda o PDF", async () => {
+  const { pedir, chamadas, salvos, comLogin } = await montar({ sessaoValida: false });
+  const r = await pedir({
+    acao: "gravar",
+    parametros: { tipo: "orcamento_pdf", dados: { orcamento_id: ORCAMENTO, pdf: base64(PDF_FALSO) } },
+  }, comLogin());
+  igual(r.status, 401);
+  igual(chamadas.map((c) => c.funcao), ["painel_autorizar"]);
+  igual(salvos.length, 0);
+});
+
+Deno.test("orçamento: orçamento que não existe não guarda nada", async () => {
+  const { pedir, salvos, comLogin } = await montar({ caminhoPdf: null });
+  const r = await pedir({
+    acao: "gravar",
+    parametros: { tipo: "orcamento_pdf", dados: { orcamento_id: ORCAMENTO, pdf: base64(PDF_FALSO) } },
+  }, comLogin());
+  igual(r.status, 400);
+  igual(salvos.length, 0);
 });

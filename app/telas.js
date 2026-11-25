@@ -2,7 +2,7 @@
 // atividade (o que foi registrado pelo Claude e pelo site) e ajustes.
 
 import { sair } from "./auth.js";
-import { api, avisar, conteudo, depoisDeMostrar } from "./nucleo.js";
+import { api, avisar, conteudo, depoisDeMostrar, podeLancar } from "./nucleo.js";
 import {
   campo,
   COR_ORCAMENTO,
@@ -144,7 +144,9 @@ const GRUPO_ORCAMENTO = {
   expirado: "perdido",
 };
 
-export async function telaOrcamentos() {
+export async function telaOrcamentos(sub, pacienteId) {
+  // #/orcamentos/novo[/<paciente>]: o formulário só é baixado quando ela abre
+  if (sub === "novo" && podeLancar()) return (await import("./orcamento/tela.js")).telaNovoOrcamento(pacienteId);
   const d = await api("orcamentos");
   if (!d) return html`<p class="vazio">Orçamentos ainda não disponíveis.</p>`;
   const r = d.resumo ?? {};
@@ -156,6 +158,7 @@ export async function telaOrcamentos() {
         <h1>Orçamentos</h1>
         <p>${r.total ?? 0} ${r.total === 1 ? "orçamento" : "orçamentos"}</p>
       </div>
+      ${podeLancar() ? html`<a class="botao botao-principal" href="#/orcamentos/novo">+ Novo orçamento</a>` : ""}
     </div>
     <div class="numeros">
       <div class="numero"><b>${dinheiro(r.valor_em_aberto ?? 0)}</b><span>em aberto (${(r.rascunhos ?? 0) +
@@ -206,9 +209,10 @@ export async function telaOrcamentos() {
           </li>
         `
       )}</ul>
-      <p class="vazio filtro-vazio" ${lista.length
-        ? "hidden"
-        : ""}>Nenhum orçamento aqui. Peça ao Claude: “monta um orçamento pra Fulana”.</p>
+      <p class="vazio filtro-vazio"
+        ${lista.length
+          ? "hidden"
+          : ""}>Nenhum orçamento aqui. Toque em “Novo orçamento” ou peça ao Claude: “monta um orçamento pra Fulana”.</p>
     </section>
   `;
 }

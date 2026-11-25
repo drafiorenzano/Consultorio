@@ -13,6 +13,10 @@
 //   Storage (bucket privado, pasta anexos/<paciente>/); o navegador manda o
 //   arquivo direto para lá e depois grava com "gravar" tipo "anexo". A API
 //   confere no Storage que o arquivo chegou e manda o tamanho e o tipo reais.
+// - Orçamento: "orcamento_novo" traz o catálogo e as campanhas; "gravar" tipo
+//   "orcamento" monta pela mesma função do conector (mcp_montar_orcamento) e
+//   tipo "orcamento_pdf" recebe o PDF que o navegador desenhou: a API confere
+//   que é PDF, guarda no Storage no caminho que o banco escolhe e registra.
 // - Convite: "x-acesso: <código>" do link que o Claude gera (acesso_ipad).
 //   "convite" diz para qual e-mail ele vale; "criar_conta" gasta o convite e
 //   cria a conta (ou troca a senha e apaga o segundo fator antigo).
@@ -36,6 +40,8 @@ export interface DependenciasPainel {
   envio?: (caminho: string) => Promise<string>;
   /** Tamanho e tipo do arquivo que está no Storage, ou null se não chegou. */
   infoArquivo?: (caminho: string) => Promise<{ tamanho: number; tipo: string } | null>;
+  /** Guarda um arquivo novo no Storage (sem sobrescrever). */
+  salvar?: (caminho: string, bytes: Uint8Array, tipo: string) => Promise<void>;
 }
 
 export const ACOES = new Set([
@@ -44,6 +50,7 @@ export const ACOES = new Set([
   "pacientes",
   "paciente",
   "orcamentos",
+  "orcamento_novo",
   "documentos",
   "estoque",
   "financeiro",
@@ -60,6 +67,8 @@ export const LANCAMENTOS = new Set([
   "estoque",
   "anexo",
   "retirar_anexo",
+  "orcamento",
+  "orcamento_pdf",
 ]);
 /** Arquivos aceitos na ficha: tipo -> extensão. Até 20 MB (o limite do bucket). */
 export const TIPOS_ANEXO: Record<string, string> = {
@@ -68,6 +77,8 @@ export const TIPOS_ANEXO: Record<string, string> = {
   "image/png": "png",
 };
 export const LIMITE_ANEXO = 20 * 1024 * 1024;
+/** PDF do orçamento desenhado no navegador (o normal fica perto de 150 KB). */
+export const LIMITE_PDF_ORCAMENTO = 8 * 1024 * 1024;
 const LIMITE_LINKS = 400;
 
 const CORS = {
@@ -78,7 +89,11 @@ const CORS = {
 };
 
 export async function sha256Hex(texto: string): Promise<string> {
-  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(texto)));
+  return await sha256DosBytes(new TextEncoder().encode(texto));
+}
+
+async function sha256DosBytes(conteudo: Uint8Array): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest("SHA-256", conteudo as Uint8Array<ArrayBuffer>));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -128,6 +143,59 @@ async function prepararAnexo(dados: Record<string, unknown>, deps: DependenciasP
   if (TIPOS_ANEXO[info.tipo] !== m[3]) throw new Error("Esse tipo de arquivo não vale: use PDF, JPG ou PNG.");
   if (!(info.tamanho > 0) || info.tamanho > LIMITE_ANEXO) throw new Error("O arquivo passa de 20 MB.");
   return { ...dados, tamanho_bytes: info.tamanho, tipo_arquivo: info.tipo };
+}
+
+/** PDF em base64 que o site mandou: confere que é PDF e o tamanho. */
+export function lerPdf(base64: unknown): Uint8Array {
+  if (typeof base64 !== "string" || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    throw new Error("O PDF não chegou inteiro.");
+  }
+  if (base64.length > Math.ceil(LIMITE_PDF_ORCAMENTO / 3) * 4) throw new Error("O PDF ficou grande demais.");
+  let bytes: Uint8Array;
+  try {
+    bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  } catch (_) {
+    throw new Error("O PDF não chegou inteiro.");
+  }
+  if (bytes.length < 200 || new TextDecoder().decode(bytes.subarray(0, 5)) !== "%PDF-") {
+    throw new Error("O arquivo do orçamento não é um PDF.");
+  }
+  return bytes;
+}
+
+/**
+ * Guarda o PDF do orçamento: confere a sessão, pede ao banco o caminho na pasta
+ * do paciente, sobe para o Storage e registra (painel_gravar "orcamento_pdf").
+ * O banco só recebe o caminho, o tamanho e o SHA-256 calculados aqui.
+ */
+async function guardarPdfOrcamento(
+  dados: Record<string, unknown>,
+  usuario: string,
+  sessao: string | null,
+  deps: DependenciasPainel,
+): Promise<{ status: string } | Record<string, unknown>> {
+  const id = typeof dados.orcamento_id === "string" && UUID.test(dados.orcamento_id)
+    ? dados.orcamento_id.toLowerCase()
+    : "";
+  if (!id) throw new Error("Orçamento inválido.");
+  const bytes = lerPdf(dados.pdf);
+  if (!deps.salvar) throw new Error("Armazenamento indisponível.");
+  const ok = await deps.rpc("painel_autorizar", {
+    p_usuario: usuario,
+    p_sessao: sessao,
+    p_acao: "orcamento_pdf",
+    p_paciente: null,
+  });
+  if (ok !== true) return { status: "sessao_expirada" };
+  const caminho = await deps.rpc("painel_orcamento_caminho", { p_orcamento: id });
+  if (typeof caminho !== "string" || !caminho) throw new Error("Orçamento não encontrado.");
+  await deps.salvar(caminho, bytes, "application/pdf");
+  return await deps.rpc("painel_gravar", {
+    p_usuario: usuario,
+    p_sessao: sessao,
+    p_acao: "orcamento_pdf",
+    p_dados: { orcamento_id: id, caminho, tamanho_bytes: bytes.length, sha256: await sha256DosBytes(bytes) },
+  }) as Record<string, unknown>;
 }
 
 /** Troca cada {"arquivo": "caminho"} por um link temporário em "link" (um pedido só ao Storage). */
@@ -236,6 +304,11 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
       const sessao = typeof d.session_id === "string" ? d.session_id : null;
 
       if (gravar) {
+        if (tipo === "orcamento_pdf") {
+          const r = await guardarPdfOrcamento(lancamento as Record<string, unknown>, usuario.id, sessao, deps);
+          if (r?.status === "sessao_expirada") return json(sair, 401);
+          return json({ dados: r });
+        }
         const dados = tipo === "anexo" ? await prepararAnexo(lancamento as Record<string, unknown>, deps) : lancamento;
         const r = await deps.rpc("painel_gravar", {
           p_usuario: usuario.id,
@@ -244,6 +317,8 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
           p_dados: dados,
         });
         if ((r as { status?: string } | null)?.status === "sessao_expirada") return json(sair, 401);
+        // o documento (caminho e dados do PDF do conector) não vai para o navegador
+        if (tipo === "orcamento" && r && typeof r === "object") delete (r as Record<string, unknown>).documento;
         return json({ dados: r });
       }
       if (envio) {
@@ -267,9 +342,12 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
         const caminho = `anexos/${pac}/${id}.${ext}`;
         return json({ dados: { anexo_id: id, caminho, url: await deps.envio(caminho) } });
       }
-      const paciente = acao === "paciente" && typeof parametros.id === "string" && UUID.test(parametros.id)
+      const idPaciente = acao === "paciente"
         ? parametros.id
+        : acao === "orcamento_novo"
+        ? parametros.paciente_id
         : null;
+      const paciente = typeof idPaciente === "string" && UUID.test(idPaciente) ? idPaciente : null;
       const autorizado = await deps.rpc("painel_autorizar", {
         p_usuario: usuario.id,
         p_sessao: sessao,

@@ -918,6 +918,8 @@ function tabelaPacientes(lista) {
 // Ficha do paciente
 // ------------------------------------------------------------------
 const cacheFicha = new Map();
+// algo gravado fora daqui (ex.: orçamento novo pelo site): a ficha volta a vir do banco
+window.addEventListener("consultorio:gravou", () => cacheFicha.clear());
 async function telaPaciente(id, aba = "resumo") {
   if (!id) return telaPacientes();
   let p = cacheFicha.get(id);
@@ -1422,61 +1424,72 @@ function abaConsultas(p) {
 
 // ---------- módulos (orçamentos, documentos, financeiro do paciente) ----------
 function abaOrcamentos(p) {
+  const novo = podeLancar()
+    ? html`
+      <p class="botoes"
+        style="margin:0 0 14px"><a class="botao botao-principal" href="#/orcamentos/novo/${p
+          .id}">+ Novo orçamento</a></p>
+    `
+    : "";
   if (!p.orcamentos?.length) {
     return html`
+      ${novo}
       <section class="cartao">
         <p
-          class="vazio">Nenhum orçamento. Peça ao Claude: “monta um orçamento pra ${p.apelido ??
+          class="vazio">Nenhum orçamento. Faça pelo botão acima ou peça ao Claude: “monta um orçamento pra ${p
+            .apelido ??
             p.nome.split(" ")[0]} com o que está planejado no odontograma”.</p>
       </section>
     `;
   }
-  return p.orcamentos.map((o) =>
-    html`<section class="cartao"><div class="linha"><div><h2 style="margin:0">${o.titulo}</h2>
+  return html`${novo}${
+    p.orcamentos.map((o) =>
+      html`<section class="cartao"><div class="linha"><div><h2 style="margin:0">${o.titulo}</h2>
       <div class="suave pequeno">${
-      [
-        o.data ? `emitido ${dataCurta(o.data, true)}` : "",
-        o.validade && ["apresentado", "rascunho"].includes(o.situacao)
-          ? `válido até ${dataCurta(o.validade, true)}`
-          : "",
-        o.aprovado_em ? `aprovado ${dataCurta(o.aprovado_em, true)}` : "",
-        o.forma ?? "",
-      ].filter(Boolean).join(" · ")
-    }</div></div>
+        [
+          o.data ? `emitido ${dataCurta(o.data, true)}` : "",
+          o.validade && ["apresentado", "rascunho"].includes(o.situacao)
+            ? `válido até ${dataCurta(o.validade, true)}`
+            : "",
+          o.aprovado_em ? `aprovado ${dataCurta(o.aprovado_em, true)}` : "",
+          o.forma ?? "",
+        ].filter(Boolean).join(" · ")
+      }</div></div>
       <div class="botoes"><span class="etiqueta ${COR_ORCAMENTO[o.situacao] ?? ""}">${o.status}</span>${
-      o.link ? html`<a class="botao" href="${o.link}" target="_blank" rel="noopener">Abrir PDF</a>` : ""
-    }</div></div>
+        o.link ? html`<a class="botao" href="${o.link}" target="_blank" rel="noopener">Abrir PDF</a>` : ""
+      }</div></div>
       <ul class="lista" style="margin-top:10px">${
-      (o.itens ?? []).map((i) =>
-        html`
-          <li>
-            <div class="linha">
-              <div${i.conta === false ? cru(' style="opacity:.55"') : ""}>${i.descricao}${i.alternativa
-                ? html`
-                  <span class="etiqueta etiqueta-info">opção ${i.alternativa}</span>
-                `
-                : ""}
-                    ${i.local ? html`<div class="suave pequeno">${i.local}</div>` : ""}</div>
-                    <div class="botoes">${STATUS_ITEM[i.status]
-                      ? html`<span class="etiqueta ${i.status === "realizado" ? "etiqueta-ok" : ""}">${
-                        STATUS_ITEM[i.status]
-                      }</span>`
-                      : ""}<span>${i.valor != null ? dinheiro(i.valor) : ""}</span></div></div></li>
-        `
-      )
-    }</ul>
+        (o.itens ?? []).map((i) =>
+          html`
+            <li>
+              <div class="linha">
+                <div${i.conta === false ? cru(' style="opacity:.55"') : ""}>${i.descricao}${i.alternativa
+                  ? html`
+                    <span class="etiqueta etiqueta-info">opção ${i.alternativa}</span>
+                  `
+                  : ""}
+                      ${i.local ? html`<div class="suave pequeno">${i.local}</div>` : ""}</div>
+                      <div class="botoes">${STATUS_ITEM[i.status]
+                        ? html`<span class="etiqueta ${i.status === "realizado" ? "etiqueta-ok" : ""}">${
+                          STATUS_ITEM[i.status]
+                        }</span>`
+                        : ""}<span>${i.valor != null ? dinheiro(i.valor) : ""}</span></div></div></li>
+          `
+        )
+      }</ul>
       <div class="linha" style="margin-top:10px"><span class="suave">Total</span><span class="forte">${
-      valorOrcamento(o)
-    }</span></div>
+        valorOrcamento(o)
+      }</span></div>
       ${
-      o.proximo_contato
-        ? html`<p class="pequeno ${
-          o.contato_em_atraso ? "texto-alerta" : "suave"
-        }" style="margin:8px 0 0">Próximo contato: ${dataCurta(o.proximo_contato, true)}</p>`
-        : ""
-    }
+        o.proximo_contato
+          ? html`<p class="pequeno ${
+            o.contato_em_atraso ? "texto-alerta" : "suave"
+          }" style="margin:8px 0 0">Próximo contato: ${dataCurta(o.proximo_contato, true)}</p>`
+          : ""
+      }
     </section>`
-  );
+    )
+  }`;
 }
 
 function abaFinanceiro(p) {

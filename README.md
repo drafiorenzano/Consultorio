@@ -104,6 +104,25 @@ tamanho e o tipo reais. O registro vai para `anexos` por
 "Tirar da ficha" grava em `anexos_retirados` com o motivo e o arquivo continua
 guardado com o prontuário.
 
+**Orçamento pelo site.** Em Orçamentos (ou na aba Orçamentos da ficha), "+ Novo
+orçamento" abre o mesmo gerador que ela usava no `/orcamento` do site público
+(paciente, procedimentos da tabela de preços ou texto livre, dente/região,
+quantidade, valor, desconto em R$ ou %, parcelas, observações), com a prévia
+do documento ao lado. A ação `orcamento_novo` traz o catálogo com os preços, as
+campanhas (a escolhida vai pelo id) e, com `paciente_id`, o orçamento em aberto
+do paciente, para ela escolher entre versão nova (padrão) ou outro à parte.
+Salvar chama `gravar` tipo `orcamento`, que monta por `mcp_montar_orcamento`
+(número, versão, preço de campanha, acompanhamento de 7/21/45 dias e
+auditoria, como o Claude), só com os itens do formulário
+(`incluir_odontograma: false`) e com as condições do PDF (sem desconto à vista
+nem entrada; cartão em até N vezes). O PDF é desenhado no navegador a partir
+do que ficou gravado, com o mesmo desenho e as mesmas fontes do site público
+(`app/orcamento/pdf.js`, jsPDF 4.2.1 em `app/orcamento/`, baixado só quando ela
+abre a tela), e volta pela `gravar` tipo `orcamento_pdf`: a API confere que é
+PDF, sobe para o caminho que o banco escolhe (`painel_orcamento_caminho`) e
+registra em `documentos` com `gerado_por = 'site'`, tamanho e SHA-256. Ela pode
+baixar o PDF ou mandar pelo compartilhar do iPhone (WhatsApp, e-mail).
+
 **Login.** Conta do Supabase Auth com e-mail, senha e código TOTP (app Senhas
 do iPhone). A conta só nasce, ou troca de senha, pelo convite que o Claude gera
 com `acesso_ipad` (link `#acesso=...`, uma vez só, 7 dias; o hash fica em
@@ -117,7 +136,8 @@ depois da última troca de senha, com até 30 dias, e cada acesso fica em
 token) devolve `public.painel(acao, parametros)` e, na ação `gravar`, chama
 `painel_gravar`, que usa as mesmas funções do conector
 (`mcp_registrar_pagamento`, `mcp_registrar_despesa`,
-`mcp_movimentar_estoque`, `mcp_registrar_anexo`) com as mesmas validações. A solicitação fica marcada
+`mcp_movimentar_estoque`, `mcp_registrar_anexo`, `mcp_montar_orcamento`,
+`mcp_registrar_documento`) com as mesmas validações. A solicitação fica marcada
 como vinda do site (`solicitacoes.cliente = 'site'`) e aparece em Atividade
 como "pelo site". Só os campos listados em `painel_campos` passam. Estornos
 são registros novos, nada se apaga. `LANCAR_PELO_SITE` em `app/config.js`

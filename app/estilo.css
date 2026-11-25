@@ -438,3 +438,87 @@ details.amanha[open] > summary h2::after { transform: rotate(90deg); }
 .anexo-previa .anexo-pdf { padding: 14px 12px; border-radius: 8px; background: var(--cor-areia-suave); }
 input.arquivo { width: 100%; font: inherit; padding: 10px; border: 1px dashed var(--cor-areia); border-radius: var(--raio); background: var(--cor-superficie); color: var(--cor-texto); }
 @media (max-width: 520px) { .anexos { grid-template-columns: 1fr; } }
+
+/* ------------------------------------------------------------------
+   Novo orçamento: formulário à esquerda, documento (A4) à direita.
+   O documento usa as medidas e cores do PDF (orcamento/pdf.js), sempre
+   em papel branco, mesmo no tema escuro.
+   ------------------------------------------------------------------ */
+.orc-tela { display: grid; grid-template-columns: minmax(300px, 430px) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .orc-tela { grid-template-columns: 1fr; } }
+.orc-form { gap: 24px; }
+.orc-bloco { display: flex; flex-direction: column; gap: 12px; }
+.orc-bloco > h2, .orc-bloco-topo > h2 {
+  margin: 0; font-family: var(--fonte-texto); font-size: 12px; font-weight: 500;
+  text-transform: uppercase; letter-spacing: .2em; color: var(--cor-texto-suave);
+}
+.orc-bloco-topo { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.orc-fixo { min-height: 46px; display: flex; align-items: center; padding: 0 2px; }
+.campos-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+.orc-dica { margin: -4px 0 0; }
+.orc-itens { display: flex; flex-direction: column; gap: 12px; }
+.orc-itens:empty { display: none; }
+.orc-item { position: relative; display: grid; grid-template-columns: 1fr; gap: 8px; padding: 12px; border-radius: 12px; background: var(--cor-areia-suave); }
+.orc-item .busca { min-height: 42px; padding: 8px 12px; max-width: none; }
+.orc-item-numeros { display: grid; grid-template-columns: 76px 1fr; gap: 8px; }
+.orc-item-dica { margin: -2px 2px 0; font-size: 13px; }
+.orc-item-remover {
+  position: absolute; top: -9px; right: -9px; width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 1px solid var(--cor-linha); background: var(--cor-superficie); color: var(--cor-marca); font-size: 17px; line-height: 1;
+}
+.orc-item-remover:hover { background: var(--cor-marca); color: var(--cor-superficie); }
+.orc-check { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--cor-areia-suave); cursor: pointer; }
+.orc-check input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--cor-marca); flex: none; }
+.orc-check em { display: block; font-style: normal; font-size: 13.5px; color: var(--cor-texto-suave); margin-top: 2px; }
+.orc-aberto legend { margin-bottom: 6px; }
+.orc-acoes { gap: 14px; }
+.orc-acoes .botao-principal { min-height: 48px; padding: 10px 22px; }
+.orc-nota { margin: 0; border-top: 1px solid var(--cor-linha); padding-top: 12px; }
+.orc-previa { position: sticky; top: 16px; min-width: 0; }
+@media (max-width: 1100px) { .orc-previa { position: static; } }
+.orc-moldura { padding: 18px; border-radius: var(--raio); background: #e8e5de; overflow: hidden; }
+:root[data-tema="escuro"] .orc-moldura { background: #2b302d; }
+@media (max-width: 520px) { .orc-moldura { padding: 8px; } }
+
+.orc-doc {
+  --d-ink: #2c4a3e; --d-ink-soft: #3d5e51; --d-warm: #f0ede6; --d-sand: #d4c5a9; --d-texto: #1f2a24; --d-muted: #6b7570;
+  width: 210mm; min-height: 297mm; margin: 0 auto; background: #fff; color: var(--d-texto);
+  display: flex; flex-direction: column; box-shadow: 0 1rem 3rem rgb(31 42 36 / 14%);
+  font-family: "Outfit", system-ui, sans-serif; line-height: normal; color-scheme: light;
+}
+.orc-doc .d-topo { background: var(--d-ink); color: var(--d-warm); padding: 14mm 14mm 10mm; display: flex; align-items: flex-start; gap: 8mm; }
+.orc-doc .d-identidade { display: flex; flex-direction: column; gap: 1.5mm; flex: 1; }
+.orc-doc .d-nome { font-family: "Tenor Sans", serif; font-size: 6mm; line-height: 1.1; }
+.orc-doc .d-cro { font-size: 2.9mm; letter-spacing: .18em; text-transform: uppercase; opacity: .8; }
+.orc-doc .d-tipo { font-family: "Tenor Sans", serif; font-size: 4.2mm; margin-top: 3mm; padding-top: 3mm; border-top: 1px solid rgb(240 237 230 / 28%); align-self: start; }
+.orc-doc .d-contato { display: flex; flex-direction: column; gap: 1.2mm; text-align: right; font-size: 3mm; opacity: .85; font-weight: 300; }
+.orc-doc .d-corpo { padding: 10mm 14mm 12mm; display: flex; flex-direction: column; gap: 8mm; flex: 1; }
+.orc-doc .d-cabecalho { display: grid; grid-template-columns: 1.75fr 1fr 1fr; gap: 6mm; padding-bottom: 6mm; border-bottom: 1px solid var(--d-sand); }
+.orc-doc .d-cabecalho > div { display: flex; flex-direction: column; gap: 1.2mm; }
+.orc-doc .d-rotulo { font-size: 2.6mm; text-transform: uppercase; letter-spacing: .2em; color: var(--d-muted); }
+.orc-doc .d-cabecalho strong { font-family: "Tenor Sans", serif; font-size: 4.2mm; font-weight: 400; color: var(--d-ink); line-height: 1.25; }
+.orc-doc .d-paciente strong { font-size: 5.2mm; overflow-wrap: anywhere; }
+.orc-doc .d-cabecalho > div:not(.d-paciente) { text-align: right; }
+.orc-doc .d-cabecalho > div:not(.d-paciente) strong { white-space: nowrap; font-size: 3.9mm; }
+.orc-doc .d-tabela { width: 100%; border-collapse: collapse; font-size: 3.4mm; }
+.orc-doc .d-tabela th { text-align: left; font-weight: 400; font-size: 2.6mm; text-transform: uppercase; letter-spacing: .18em; color: var(--d-muted); padding: 0 0 2.5mm; border-bottom: 1px solid var(--d-sand); }
+.orc-doc .d-tabela td { padding: 3mm 0; border-bottom: 1px solid rgb(44 74 62 / 10%); vertical-align: top; font-weight: 300; }
+.orc-doc .col-qtd, .orc-doc .col-val, .orc-doc .col-sub { text-align: right !important; white-space: nowrap; }
+.orc-doc .col-qtd { width: 18mm; padding-left: 8mm !important; }
+.orc-doc .col-val { width: 30mm; padding-left: 6mm !important; }
+.orc-doc .col-sub { width: 32mm; padding-left: 6mm !important; }
+.orc-doc td.col-desc { font-weight: 400; color: var(--d-ink); padding-right: 4mm; overflow-wrap: anywhere; }
+.orc-doc .col-reg { color: var(--d-muted); padding-right: 10mm !important; overflow-wrap: anywhere; }
+.orc-doc .d-tabela.sem-precos .col-val, .orc-doc .d-tabela.sem-precos .col-sub { display: none; }
+.orc-doc .d-vazio td { color: var(--d-muted); font-style: italic; border-bottom: 0; padding-top: 5mm; }
+.orc-doc .d-totais { display: grid; grid-template-columns: 1fr 78mm; gap: 8mm; align-items: start; }
+.orc-doc .d-obs p { margin: 1.5mm 0 0; font-size: 3.2mm; line-height: 1.65; font-weight: 300; white-space: pre-line; overflow-wrap: anywhere; }
+.orc-doc .d-somas { display: flex; flex-direction: column; gap: 2mm; }
+.orc-doc .d-soma { display: flex; justify-content: space-between; gap: 4mm; font-size: 3.4mm; font-weight: 300; padding: 1.5mm 0; }
+.orc-doc .d-soma-desconto { color: var(--d-ink-soft); }
+.orc-doc .d-soma-total { background: var(--d-warm); padding: 3.5mm 4mm; margin-top: 1mm; font-family: "Tenor Sans", serif; font-size: 5mm; color: var(--d-ink); font-weight: 400; }
+.orc-doc .d-soma-total-valor { display: inline-flex; align-items: baseline; gap: 1.5mm; white-space: nowrap; }
+.orc-doc .d-vezes { font-family: "Outfit", sans-serif; font-size: 3.4mm; font-weight: 300; color: var(--d-ink-soft); }
+.orc-doc .d-soma-cheio { border-top: 1px solid var(--d-sand); padding-top: 2.5mm; color: var(--d-muted); font-size: 3.1mm; }
+.orc-doc .d-rodape { margin-top: auto; padding-top: 10mm; border-top: 1px solid var(--d-sand); }
+.orc-doc .d-rodape p { margin: 0; font-size: 2.7mm; line-height: 1.6; color: var(--d-muted); font-weight: 300; max-width: 130mm; }

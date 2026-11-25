@@ -1,4 +1,4 @@
-// Edge Function "painel": API do site do consultório (leituras e lançamentos).
+// Edge Function "painel": API do site do consultório (leituras, lançamentos e orçamentos).
 // Publicar com verify_jwt = false: o login é conferido em handler.ts (token
 // da conta dela com o segundo fator, e sessão válida em painel_autorizar);
 // o convite usa o código do link no cabeçalho x-acesso.
@@ -107,11 +107,25 @@ async function infoArquivo(caminho: string): Promise<{ tamanho: number; tipo: st
   return { tamanho: Number(item.metadata.size ?? 0), tipo: String(item.metadata.mimetype ?? "") };
 }
 
+/** Guarda um arquivo novo no bucket "documentos" (sem sobrescrever o que já existe). */
+async function salvar(caminho: string, bytes: Uint8Array, tipo: string): Promise<void> {
+  const resposta = await fetch(`${SUPABASE_URL}/storage/v1/object/documentos/${caminho}`, {
+    method: "POST",
+    headers: { "Content-Type": tipo, "x-upsert": "false", "cache-control": "no-cache", ...cabecalhosSecretos() },
+    body: new Blob([bytes as Uint8Array<ArrayBuffer>], { type: tipo }),
+  });
+  if (!resposta.ok) {
+    console.error(`storage salvar falhou: ${resposta.status}`);
+    throw new Error(`Não consegui guardar o PDF (erro ${resposta.status} no Storage). Tente de novo.`);
+  }
+}
+
 Deno.serve(criarHandlerPainel({
   rpc,
   assinar,
   envio,
   infoArquivo,
+  salvar,
   auth: {
     usuario: async (token) => {
       const resposta = await fetch(`${SUPABASE_URL}/auth/v1/user`, {

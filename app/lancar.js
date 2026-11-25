@@ -123,7 +123,7 @@ const caixasFinais = html`
 // ------------------------------------------------------------------
 // Escolher paciente (busca por nome)
 // ------------------------------------------------------------------
-function campoPaciente(paciente, obrigatorio = true) {
+export function campoPaciente(paciente, obrigatorio = true) {
   if (paciente?.id) {
     return html`<div class="campo"><span class="rotulo">Paciente</span><div class="forte">${paciente.nome}</div>
       <input type="hidden" name="paciente_id" value="${paciente.id}"></div>`;
@@ -139,7 +139,8 @@ function campoPaciente(paciente, obrigatorio = true) {
     <ul class="sugestoes" role="listbox"></ul></div>`;
 }
 
-function ligarPaciente(janela) {
+/** Liga a busca de paciente; aoEscolher recebe {id, nome} ao escolher e null ao trocar. */
+export function ligarPaciente(janela, aoEscolher) {
   const busca = janela.querySelector("#busca-paciente");
   if (!busca) return;
   const oculto = janela.querySelector("input[name=paciente_id]");
@@ -184,12 +185,14 @@ function ligarPaciente(janela) {
     );
     busca.hidden = true;
     lista.innerHTML = "";
+    aoEscolher?.({ id: b.dataset.id, nome: b.dataset.nome });
     escolhido.querySelector("button").addEventListener("click", () => {
       oculto.value = "";
       escolhido.hidden = true;
       busca.hidden = false;
       busca.value = "";
       busca.focus();
+      aoEscolher?.(null);
     });
   });
 }
