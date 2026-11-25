@@ -1,13 +1,16 @@
-// Acesso ao app do iPad (só leitura): gerar o link, listar e revogar.
+// Acesso ao site do consultório (celular, iPad e computador): gerar o convite
+// (link de uso único que cria a conta ou troca a senha e o código), listar e revogar.
 
 import { z } from "zod";
 import { GRAVACAO, gravarComDados, type Modulo, textoOriginal } from "../comum.ts";
 
 const esquema = {
   acao: z.enum(["gerar", "listar", "revogar"]).describe(
-    "gerar: novo link de acesso para um aparelho; listar: aparelhos com acesso; revogar: tira o acesso.",
+    "gerar: convite novo para entrar no site (cria a conta ou troca a senha e o código de 2 fatores); " +
+      "listar: conta do site, aparelhos conectados e convites pendentes; revogar: cancela um convite ou, com " +
+      "todos = true, tira o site de todos os aparelhos.",
   ),
-  aparelho: z.string().optional().describe("gerar: nome do aparelho (ex.: iPad do consultório)."),
+  aparelho: z.string().optional().describe("gerar: para quem ou onde é o convite (ex.: iPad da Dra.)."),
   acesso_id: z.string().optional().describe("revogar: id devolvido por listar."),
   todos: z.boolean().optional().describe("revogar: true tira o acesso de todos os aparelhos."),
   texto_original: textoOriginal(),
@@ -16,15 +19,22 @@ const esquema = {
 export const modulo: Modulo = {
   nome: "ipad",
   instrucoes: [
-    "App do iPad: se ela pedir o acesso do iPad, use acesso_ipad (gerar) e mostre o link uma vez só, com o como_usar. Se ela perder o aparelho, revogue.",
+    "Site do consultório (celular, iPad e computador): entra com e-mail, senha e código de 2 fatores (app Senhas " +
+    "do iPhone). A conta nasce, e a senha e o código são trocados, só por um convite: se pedirem o site, login, " +
+    'senha, acesso, "esqueci a senha" ou "troquei de celular", use acesso_ipad (gerar) e mostre o link uma vez ' +
+    "só, com o como_usar. Quem abre o link cria a senha e cadastra o código; um convite novo troca os dois. " +
+    "Perdeu o aparelho: acesso_ipad (revogar, todos = true).",
   ],
   registrar(servidor, deps) {
     servidor.registerTool(
       "acesso_ipad",
       {
-        title: "Acesso do iPad",
-        description: "Gera o link de acesso do app do iPad (agenda e fichas, só leitura), lista os aparelhos com " +
-          "acesso ou revoga um acesso. O link só aparece na hora de gerar.",
+        title: "Acesso ao site",
+        description: "Site do consultório (celular, iPad e computador): mostra o dia, a agenda, as fichas e o " +
+          "financeiro, lança recebimentos, despesas e estoque e guarda exames na ficha. Entra com e-mail, senha e " +
+          "código de 2 fatores. gerar cria o convite (link de uso único, vale 7 dias) que cria a conta ou troca a " +
+          "senha e o código; listar mostra a conta e os convites; revogar cancela convites ou tira o site de todos " +
+          "os aparelhos. O link só aparece na hora de gerar.",
         inputSchema: esquema,
         annotations: GRAVACAO,
       },
