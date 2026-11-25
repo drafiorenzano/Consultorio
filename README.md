@@ -233,6 +233,12 @@ scripts/pacote/montar.sh /tmp/pacote   # gera pacote.sql e index.js
 # 3. apague da tabela as partes da versão antiga
 ```
 
+Sem o SQL editor, o banco busca o pacote sozinho: junte as partes de
+`pacote.sql` num arquivo `.b64`, suba num commit, rode
+`select net.http_get('https://raw.githubusercontent.com/<dono>/<repo>/<commit>/<arquivo>')`,
+confira o md5 de `net._http_response.content` e insira as partes de 6000
+caracteres a partir dele; depois tire o arquivo do repositório.
+
 Com o Supabase CLI (`supabase functions deploy mcp --no-verify-jwt`) a função
 volta a ser publicada direto de `supabase/functions/mcp/` e a tabela
 `pacote_conector` pode ser apagada.
