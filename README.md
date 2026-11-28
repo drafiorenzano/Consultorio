@@ -68,7 +68,7 @@ Os módulos estão documentados à parte: agenda e site (abaixo),
 | Documentos | `montar_orcamento` (a partir do plano no odontograma, com alternativas e fases), `alterar_orcamento`, `emitir_receita`, `emitir_atestado`, `emitir_termo`, `ver_documentos` |
 | Estoque | `registrar_compra` (vira despesa), `movimentar_estoque`, `ver_estoque`, `salvar_material` |
 | Financeiro | `registrar_pagamento`, `registrar_despesa`, `ver_financeiro`, `marcar_recibos`, `configurar_financeiro`, `gerar_pacote_contador` |
-| Site | `acesso_ipad` (gera o convite do site, lista os aparelhos e tira o acesso; o nome ficou da época do app do iPad) |
+| Site | `acesso_ipad` (gera o convite do site, também para a conta própria de outra pessoa com `email` e `pessoa`, lista contas e aparelhos e tira o acesso; o nome ficou da época do app do iPad) |
 | Preços | `salvar_campanha` (preços só de uma campanha, ex.: Campanha RJ; os normais não mudam), `ver_campanhas`, `calcular_preco` (lucro no Pix, débito e crédito 1x a 12x, com imposto e custos do kit) |
 | Calendário | `acesso_calendario` (gera, lista e revoga o link de assinatura da agenda no app Calendário) |
 | Ficha online | `ficha_online` (link pessoal com mensagem pronta para o WhatsApp; lista e cancela), `ver_ficha_online` (o que o paciente respondeu ao lado da ficha), `confirmar_ficha_online` (grava ou descarta, com campos a ignorar) |
@@ -131,6 +131,17 @@ código novo só vale se for cadastrado até 24 h depois de usar o convite. Cada
 pedido passa por `painel_autorizar`: sessão com segundo fator (aal2), aberta
 depois da última troca de senha, com até 30 dias, e cada acesso fica em
 `painel_log`.
+
+**Outras contas.** Outra pessoa (ex.: o Guilherme) pode ter conta própria,
+separada da dela: `acesso_ipad` com `acao = gerar`, `email` e `pessoa` grava o
+e-mail no convite (`acessos_mcp.email_convite`) e a conta nasce com
+`painel_contas.pessoa` preenchido. Convite sem `email` é sempre da conta da
+Dra. (`painel_email_da_dra()`), e gerar um convite para outra pessoa só
+substitui os convites pendentes dessa mesma pessoa. `acesso_ipad` com
+`acao = revogar` e `email` desliga só aquela conta (`desativada_em`); `listar`
+mostra as contas e os convites pendentes. Todas as contas veem e lançam o mesmo
+que ela. Em Ajustes, `painel_ajustes` mostra a conta de quem está vendo (o id
+vem do login, na API, nunca do pedido) e a lista "Quem entra no site".
 
 **API.** A Edge Function `painel` (sem JWT do gateway: ela mesma confere o
 token) devolve `public.painel(acao, parametros)` e, na ação `gravar`, chama
