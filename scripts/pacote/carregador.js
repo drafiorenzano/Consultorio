@@ -1,4 +1,4 @@
-// Conector MCP do consultório, versão 0.5.1 (36 ferramentas).
+// Conector MCP do consultório, versão 0.5.2 (36 ferramentas).
 //
 // Este arquivo é o que vai publicado como index.js da função "mcp" (com o
 // deno.json de supabase/functions/mcp). O código-fonte do servidor está em

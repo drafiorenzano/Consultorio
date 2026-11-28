@@ -156,6 +156,17 @@ Deno.test("painel: ações novas passam; fora da lista é recusada antes do banc
   igual(chamadas.length, antes);
 });
 
+Deno.test("ajustes: a conta mostrada é a de quem entrou, mesmo se o pedido disser outra", async () => {
+  const { pedir, chamadas, comLogin } = await montar();
+  const r = await pedir({ acao: "configuracoes", parametros: { usuario_id: "outra-pessoa" } }, comLogin());
+  igual(r.status, 200);
+  const leitura = chamadas.find((c) => c.funcao === "painel");
+  igual(leitura.args, { p_acao: "configuracoes", p_params: { usuario_id: USUARIO } });
+  // nas outras leituras o id da conta não vai junto
+  await pedir({ acao: "agenda", parametros: { inicio: "2026-11-28" } }, comLogin());
+  igual(chamadas.filter((c) => c.funcao === "painel").at(-1).args.p_params, { inicio: "2026-11-28" });
+});
+
 Deno.test("painel: ação sem leitura no banco dá 404", async () => {
   const { pedir, comLogin } = await montar({ dados: null });
   igual((await pedir({ acao: "estoque" }, comLogin())).status, 404);

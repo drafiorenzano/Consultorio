@@ -356,7 +356,9 @@ export function criarHandlerPainel(deps: DependenciasPainel) {
       });
       if (autorizado !== true) return json(sair, 401);
 
-      const dados = await deps.rpc("painel", { p_acao: acao, p_params: parametros });
+      // Ajustes mostram a conta de quem está vendo: o id vem do login, nunca do pedido.
+      const params = acao === "configuracoes" ? { ...parametros, usuario_id: usuario.id } : parametros;
+      const dados = await deps.rpc("painel", { p_acao: acao, p_params: params });
       if (dados === null) return json({ erro: "Ação ainda não disponível." }, 404);
       return json({ dados: await assinarArquivos(dados, deps) });
     } catch (e) {

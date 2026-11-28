@@ -624,6 +624,9 @@ export async function telaAjustes() {
     });
   });
   const regime = { pf: "Pessoa física (Receita Saúde)", pj: "Pessoa jurídica (nota pelo contador)" };
+  const contas = d.contas ?? [];
+  const variasContas = contas.length > 1;
+  const nomeConta = (x) => (x.da_dra || x.pessoa === "Dra." ? c.dentista_nome ?? "Dra." : x.pessoa);
   return html`
     <div class="cabecalho">
       <div>
@@ -697,6 +700,7 @@ export async function telaAjustes() {
         <section class="cartao">
           <h2>Sua conta</h2>
           <dl class="dados">
+          ${variasContas ? campo("Quem", conta.pessoa ?? c.dentista_nome) : ""}
           ${campo("E-mail", conta.email)}
           ${campo("Senha criada em", conta.senha_definida_em ? quando(conta.senha_definida_em) : null)}
           ${campo(
@@ -710,6 +714,31 @@ export async function telaAjustes() {
           </div>
           <p class="suave pequeno">Esqueceu a senha ou trocou de celular? Peça ao Claude: “me manda o link do site”.</p>
         </section>
+        ${variasContas
+          ? html`
+            <section class="cartao">
+              <h2>Quem entra no site</h2>
+              <ul class="lista">${contas.map((x) =>
+                html`
+                  <li>
+                    <div class="linha"><span class="forte">${nomeConta(
+                      x,
+                    )}</span><span class="suave pequeno">${x.aparelhos_conectados === 1
+                      ? "1 aparelho"
+                      : `${x.aparelhos_conectados ?? 0} aparelhos`}</span></div>
+                    <div class="suave pequeno">${x.email}${x.ultimo_acesso
+                      ? ` · último acesso ${quando(x.ultimo_acesso)}`
+                      : " · ainda não entrou"}</div>
+                  </li>
+                `
+              )}</ul>
+              <p
+                class="suave pequeno">Cada conta tem a própria senha e o próprio código. Para tirar alguém, peça ao Claude (por exemplo: “tira o acesso do ${nomeConta(
+                  contas.find((x) => !x.da_dra) ?? {},
+                ) ?? "fulano"} ao site”).</p>
+            </section>
+          `
+          : ""}
         <section
           class="cartao"><h2>Últimos acessos ao site</h2>${d.ultimos_acessos_site?.length
             ? html`<ul class="lista pequeno">${
@@ -718,7 +747,11 @@ export async function telaAjustes() {
                   <li>
                     <div class="linha"><span>${ACAO_LOG[l.acao] ?? (l.acao.startsWith("gravar:")
                       ? `Lançamento (${l.acao.slice(7).replaceAll("_", " ")})`
-                      : l.acao)}</span><span class="suave">${quando(l.em)}</span></div>
+                      : l.acao)}${variasContas && l.quem
+                      ? html`
+                        <span class="suave">· ${l.quem === "Dra." ? "Dra." : l.quem}</span>
+                      `
+                      : ""}</span><span class="suave">${quando(l.em)}</span></div>
                   </li>
                 `
               )

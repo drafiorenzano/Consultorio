@@ -34,7 +34,7 @@ import { modulo as precos } from "./ferramentas/precos.ts";
 import condicoes from "./catalogos/condicoes.json" with { type: "json" };
 import perguntas from "./catalogos/anamnese.json" with { type: "json" };
 
-export const VERSAO = "0.5.1";
+export const VERSAO = "0.5.2";
 
 export { type Arquivos, type Dependencias, ErroRpc, type Rpc } from "./comum.ts";
 

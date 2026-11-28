@@ -1,6 +1,6 @@
 // Guarda só a "casca" do app (HTML, CSS, JS, ícones) para abrir rápido.
 // Os dados dos pacientes nunca são guardados aqui: vêm sempre da API.
-const VERSAO = "consultorio-v4";
+const VERSAO = "consultorio-v5";
 const CASCA = [
   "./",
   "index.html",
